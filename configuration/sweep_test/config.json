@@ -1,0 +1,15 @@
+{
+    "training": {
+        "engine": "sweep_engine"
+    },
+    "sweep": {
+        "config": "configuration/sweep_test/sweep_config.json",
+        "project_name": "sweep_test"
+    },
+    "log_dir": "logs",
+    "project_dir": "sweep_test",
+    "project_tracker": ["wandb"],
+    "mixed_precision": "no",
+    "seed": 42,
+    "config": null
+}

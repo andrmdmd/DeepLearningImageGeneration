@@ -9,6 +9,7 @@ from dataclass_wizard import JSONPyWizard
 @dataclasses.dataclass
 class TrainingConfig:
     engine: str = "engine"
+    early_stopping_patience: int = 5
     label_smoothing: float = 0.0
     batch_size: int = 32
     val_freq: int = 1
@@ -40,6 +41,17 @@ class DataConfig:
 
 
 @dataclasses.dataclass
+class SweepConfig:
+    name: Optional[str] = None
+    config: str = ""
+    project_name: str = ""
+
+@dataclasses.dataclass
+class WandbConfig:
+    name: str = None
+    tags: list[str] = dataclasses.field(default_factory=list)
+
+@dataclasses.dataclass
 class Config(JSONPyWizard):
     # Config for training option
     training: TrainingConfig
@@ -53,9 +65,13 @@ class Config(JSONPyWizard):
     # Config for evaluation option
     evaluation: EvalConfig
 
+    # Wandb
+    wandb: WandbConfig
+    sweep: SweepConfig
+    project_tracker: List[str] = dataclasses.field(default_factory=lambda: ["wandb"])
+
     project_dir: str = "project"
     log_dir: str = "logs"
-    project_tracker: List[str] = dataclasses.field(default_factory=lambda: ["tensorboard"])
     mixed_precision: str = "no"
     seed: int = 0
     config: Optional[str] = None

@@ -1,3 +1,4 @@
+import ssl
 from typing import Tuple
 
 import torchvision
@@ -6,6 +7,8 @@ from torchvision.transforms import transforms
 
 from configs import Config
 
+# Disable SSL verification
+ssl._create_default_https_context = ssl._create_unverified_context
 
 class CustomDataset(Dataset):
     """Please define your own `Dataset` here. We provide an example for CIFAR-10 dataset."""

@@ -4,6 +4,9 @@ Users can extend this class to add more functionalities.
 """
 
 import os
+import csv
+import json
+import dataclasses
 
 import accelerate
 import torch
@@ -36,12 +39,21 @@ class BaseEngine:
         self, accelerator: accelerate.Accelerator, cfg: Config, is_training_engine: bool = True
     ):
         # Setup accelerator for distributed training (or single GPU) automatically
-        self.base_dir = os.path.join(cfg.log_dir, cfg.project_dir)
+        run_number = 1
+        while os.path.exists(os.path.join(cfg.log_dir, cfg.project_dir, f"run_{run_number}")):
+            run_number += 1
+        self.base_dir = os.path.join(cfg.log_dir, cfg.project_dir, f"run_{run_number}")
         self.accelerator = accelerator
 
         if self.accelerator.is_main_process and is_training_engine:
             os.makedirs(self.base_dir, exist_ok=True)
             show_config(cfg)
+
+            # Save configuration to a JSON file
+            config_path = os.path.join(self.base_dir, "config.json")
+            with open(config_path, "w") as config_file:
+                config_dict = dataclasses.asdict(cfg)
+                json.dump(config_dict, config_file, indent=4)
         self.accelerator.wait_for_everyone()
 
         self.cfg = cfg
@@ -116,3 +128,45 @@ class BaseEngine:
     def close(self):
         self.live_process.stop()
         self.accelerator.end_training()
+
+    def log_train_results(self, metrics: dict, step: int, csv_name: str = "train_metrics.csv"):
+        """
+        Logs training metrics and saves them to a CSV file.
+
+        Args:
+            metrics (dict): Dictionary of metrics to log.
+            step (int): Current training step.
+            csv_path (str): Path to the CSV file for saving metrics.
+        """
+        # Log metrics using the accelerator
+        self.accelerator.log(metrics, step=step)
+
+        # Save metrics to CSV
+        csv_path = os.path.join(self.base_dir, csv_name)
+        file_exists = os.path.exists(csv_path)
+        with open(csv_path, mode="a", newline="") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=["step"] + list(metrics.keys()))
+            if not file_exists:
+                writer.writeheader()  # Write header if file doesn't exist
+            writer.writerow({"step": step, **metrics})
+
+    def log_validation_results(self, metrics: dict, step: int, csv_name: str = "validation_metrics.csv"):
+        """
+        Logs validation metrics and saves them to a CSV file.
+
+        Args:
+            metrics (dict): Dictionary of metrics to log.
+            step (int): Current validation step.
+            csv_path (str): Path to the CSV file for saving metrics.
+        """
+        # Log metrics using the accelerator
+        self.accelerator.log(metrics, step=step)
+
+        # Save metrics to CSV
+        csv_path = os.path.join(self.base_dir, csv_name)
+        file_exists = os.path.exists(csv_path)
+        with open(csv_path, mode="a", newline="") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=["step"] + list(metrics.keys()))
+            if not file_exists:
+                writer.writeheader()  # Write header if file doesn't exist
+            writer.writerow({"step": step, **metrics})

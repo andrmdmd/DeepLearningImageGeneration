@@ -1,9 +1,0 @@
-{
-  "project_dir": "cifar-small",
-  "model": {
-    "base_dim": 32
-  },
-  "training": {},
-  "evaluation": {},
-  "data": {}
-}
