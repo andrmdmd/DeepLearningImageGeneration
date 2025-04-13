@@ -129,30 +129,9 @@ class BaseEngine:
         self.live_process.stop()
         self.accelerator.end_training()
 
-    def log_train_results(self, metrics: dict, step: int, csv_name: str = "train_metrics.csv"):
+    def log_results(self, metrics: dict, step: int, csv_name: str = "metrics.csv"):
         """
-        Logs training metrics and saves them to a CSV file.
-
-        Args:
-            metrics (dict): Dictionary of metrics to log.
-            step (int): Current training step.
-            csv_path (str): Path to the CSV file for saving metrics.
-        """
-        # Log metrics using the accelerator
-        self.accelerator.log(metrics, step=step)
-
-        # Save metrics to CSV
-        csv_path = os.path.join(self.base_dir, csv_name)
-        file_exists = os.path.exists(csv_path)
-        with open(csv_path, mode="a", newline="") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=["step"] + list(metrics.keys()))
-            if not file_exists:
-                writer.writeheader()  # Write header if file doesn't exist
-            writer.writerow({"step": step, **metrics})
-
-    def log_validation_results(self, metrics: dict, step: int, csv_name: str = "validation_metrics.csv"):
-        """
-        Logs validation metrics and saves them to a CSV file.
+        Logs metrics and saves them to a CSV file.
 
         Args:
             metrics (dict): Dictionary of metrics to log.

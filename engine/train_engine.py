@@ -106,7 +106,7 @@ class Engine(BaseEngine):
             self.iter_time.update(time.time() - start)
 
             if self.accelerator.is_main_process and self.accelerator.sync_gradients:
-                self.log_train_results(
+                self.log_results(
                 {
                         "loss/train": step_loss,
                     },
@@ -136,7 +136,7 @@ class Engine(BaseEngine):
                 f"train acc.: {metric_results['accuracy']:.3f}, loss: {metric_results['loss']:.3f}, "
                 f"precision: {metric_results['precision']:.3f}, recall: {metric_results['recall']:.3f}, f1: {metric_results['f1']:.3f}"
             )
-            self.log_train_results(
+            self.log_results(
                 {
                     "acc/train": metric_results["accuracy"],
                     "loss/train_epoch": metric_results["loss"],
@@ -145,6 +145,7 @@ class Engine(BaseEngine):
                     "f1/train": metric_results["f1"],
                 },
                 step=self.current_epoch * len(self.train_loader),  # Use train steps
+                csv_name="train_metrics.csv",
             )
 
         self.sub_task_progress.remove_task(epoch_progress)
@@ -178,7 +179,7 @@ class Engine(BaseEngine):
                 f"val. acc.: {metric_results['accuracy']:.3f}, loss: {metric_results['loss']:.3f}, "
                 f"precision: {metric_results['precision']:.3f}, recall: {metric_results['recall']:.3f}, f1: {metric_results['f1']:.3f}"
             )
-            self.log_validation_results(
+            self.log_results(
                 {
                     "acc/val": metric_results["accuracy"],
                     "loss/val": metric_results["loss"],
@@ -187,6 +188,7 @@ class Engine(BaseEngine):
                     "f1/val": metric_results["f1"],
                 },
                 step=self.current_epoch * len(self.train_loader),  # Use train steps
+                csv_name="validation_metrics.csv",
             )
         if self.accelerator.is_main_process and metric_results["accuracy"] > self.max_acc:
             save_path = os.path.join(self.base_dir, "checkpoint")
