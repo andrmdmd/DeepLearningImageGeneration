@@ -1,0 +1,22 @@
+{
+  "data": {
+    "root": "..\\..\\data",
+    "representation": null,
+    "sample_rate": 16000,
+    "yes_no_binary": true,
+    "target_commands": ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go"],
+    "background_noise": true,
+    "n_fft": 400,
+    "hop_length": 160,
+    "n_mels": 40,
+    "n_mfcc": 40
+  },
+  "training": {
+    "batch_size": 32,
+    "num_workers": 4
+  },
+  "evaluation": {
+    "batch_size": 32,
+    "num_workers": 4
+  }
+}

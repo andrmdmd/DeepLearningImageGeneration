@@ -29,15 +29,17 @@ class EvalConfig:
 
 @dataclasses.dataclass
 class ModelConfig:
-    in_channels: int = 3
+    in_channels: int = 1
     base_dim: int = 16
-    num_classes: int = 10
+    num_classes: int = 2
     resume_path: Optional[str] = None
 
 
 @dataclasses.dataclass
 class DataConfig:
     root: str = "data"
+    representation: Literal["waveform", "spectrogram", "melspectrogram", "mfcc"] = "waveform"
+    yes_no_binary: bool = True
 
 
 @dataclasses.dataclass
