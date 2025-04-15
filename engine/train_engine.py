@@ -90,7 +90,6 @@ class Engine(BaseEngine):
             self.data_time.update(time.time() - start)
             with self.accelerator.accumulate(self.model):
                 output = self.model(img)
-                output = output.squeeze(1)
                 loss = self.loss_fn(output, label)
                 self.accelerator.backward(loss)
                 self.optimizer.step()
@@ -161,7 +160,6 @@ class Engine(BaseEngine):
         with torch.no_grad():
             for img, label in self.val_loader:
                 pred = self.model(img)
-                pred = pred.squeeze(1)
                 loss = F.cross_entropy(pred, label)
                 all_losses.append(loss.item())
 
