@@ -138,29 +138,27 @@ class SpeechCommandsDataset(Dataset):
                             if full_path in set(self._load_split_files('testing_list.txt')):
                                 self.unknown_files.append(full_path)
 
-        self.noise_files = []
-        if self.cfg.data.background_noise and self.unknown_commands_included:
-            noise_dir = os.path.join(self.root_dir, '_background_noise_')
-            if os.path.exists(noise_dir):
-                for fname in os.listdir(noise_dir):
-                    if fname.endswith('.wav'):
-                        full_path = os.path.join(noise_dir, fname)
-                        if self.mode == 'training':
-                            self.noise_files.append(full_path)
-
     def _load_audio(self, filepath):
         waveform, sample_rate = librosa.load(filepath, sr=None)
 
+        # Convert stereo to mono if stereo
+        if len(waveform.shape) > 1:
+            waveform = np.mean(waveform, axis=0, keepdims=True)
+
+        # Ensure waveform is 2D (1, N)
+        if len(waveform.shape) == 1:
+            waveform = np.expand_dims(waveform, axis=0)
+
         if sample_rate != self.cfg.data.sample_rate:
             resampler = torchaudio.transforms.Resample(sample_rate, self.cfg.data.sample_rate)
-            waveform = resampler(waveform)
+            waveform = torch.tensor(waveform)
+            waveform = resampler(waveform).numpy()
 
-        # Ensure audio is 1 second long (sample_rate samples)
-        # if waveform.shape[1] > self.cfg.data.sample_rate:
-        #     waveform = waveform[:, :self.cfg.data.sample_rate]
-        # elif waveform.shape[1] < self.cfg.data.sample_rate:
-        #     padding = self.cfg.data.sample_rate - waveform.shape[1]
-        #     waveform = torch.nn.functional.pad(waveform, (0, padding))
+        if waveform.shape[1] > self.cfg.data.sample_rate:
+            waveform = waveform[:, :self.cfg.data.sample_rate]
+        elif waveform.shape[1] < self.cfg.data.sample_rate:
+            padding = self.cfg.data.sample_rate - waveform.shape[1]
+            waveform = np.pad(waveform, ((0, 0), (0, padding)), mode='constant')
 
         return waveform
 

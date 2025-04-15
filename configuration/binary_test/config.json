@@ -1,0 +1,32 @@
+{
+  "data": {
+    "root": "data",
+    "representation": "waveform",
+    "sample_rate": 16000,
+    "yes_no_binary": true,
+    "target_commands": [
+      "yes",
+      "no"
+    ],
+    "background_noise": true,
+    "n_fft": 400,
+    "hop_length": 160,
+    "n_mels": 40,
+    "n_mfcc": 40
+  },
+  "training": {
+    "batch_size": 64,
+    "epochs": 50,
+    "lr": 0.001,
+    "weight_decay": 0.0001
+  },
+  "evaluation": {
+    "batch_size": 32,
+    "num_workers": 4
+  },
+  "model": {
+    "architecture": "M5",
+    "in_channels": 1,
+    "num_classes": 2
+  }
+}

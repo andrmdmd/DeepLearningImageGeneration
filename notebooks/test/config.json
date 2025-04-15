@@ -1,6 +1,6 @@
 {
   "data": {
-    "root": "..\\..\\data",
+    "root": "../../data",
     "representation": null,
     "sample_rate": 16000,
     "yes_no_binary": true,

@@ -24,6 +24,7 @@ class ClassicModel(nn.Module):
         x = self.fc3(x)
         return x
 
+
 class M5(nn.Module):
     def __init__(self, n_input=1, n_output=35, stride=16, n_channel=32):
         super().__init__()
@@ -59,5 +60,11 @@ class M5(nn.Module):
         x = self.fc1(x)
         return F.log_softmax(x, dim=2)
 
-def build_model(cfg: Config) -> ClassicModel:
-    return None
+
+def build_model(cfg: Config) -> nn.Module:
+    return M5(
+        n_input=cfg.model.in_channels,
+        n_output=cfg.model.num_classes,
+        stride=16,
+        n_channel=32
+    )
