@@ -29,9 +29,7 @@ class EvalConfig:
 
 @dataclasses.dataclass
 class ModelConfig:
-    in_channels: int = 1
     base_dim: int = 16
-    num_classes: int = 2
     architecture: Literal["ClassicModel", "M5"] = "M5"
     resume_path: Optional[str] = None
 
@@ -41,6 +39,7 @@ class DataConfig:
     root: str = "data"
     sample_rate: int = 16000
     representation: Literal["waveform", "spectrogram", "melspectrogram", "mfcc"] = "waveform"
+    target_commands: list[str] = dataclasses.field(default_factory=lambda: ["yes", "no"])
     yes_no_binary: bool = True
 
 

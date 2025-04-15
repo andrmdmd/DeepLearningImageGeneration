@@ -62,9 +62,14 @@ class M5(nn.Module):
 
 
 def build_model(cfg: Config) -> nn.Module:
+    if cfg.data.yes_no_binary:
+        num_classes = 2
+    else:
+        num_classes = len(cfg.data.target_commands)
+
     return M5(
-        n_input=cfg.model.in_channels,
-        n_output=cfg.model.num_classes,
+        n_input=1,
+        n_output=num_classes,
         stride=16,
         n_channel=32
     )
