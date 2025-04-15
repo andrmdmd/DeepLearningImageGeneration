@@ -15,6 +15,7 @@
     "n_mfcc": 40
   },
   "training": {
+    "engine": "sweep_engine",
     "batch_size": 64,
     "epochs": 50,
     "lr": 0.001,
@@ -25,8 +26,18 @@
     "num_workers": 4
   },
   "model": {
-    "architecture": "M5",
-    "in_channels": 1,
-    "num_classes": 2
-  }
+    "architecture": "M5"
+  },
+  "sweep": {
+    "config": "configuration/binary_test/sweep_config.json",
+    "project_name": "binary_test"
+  },
+  "log_dir": "logs",
+  "project_dir": "binary_test",
+  "project_tracker": [
+    "wandb"
+  ],
+  "mixed_precision": "no",
+  "seed": 42,
+  "config": null
 }
