@@ -31,6 +31,7 @@ class EvalConfig:
 class ModelConfig:
     base_dim: int = 16
     architecture: Literal["ClassicModel", "M5"] = "M5"
+    num_classes: int = 2
     resume_path: Optional[str] = None
 
 
