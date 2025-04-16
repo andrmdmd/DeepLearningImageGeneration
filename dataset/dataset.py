@@ -19,14 +19,18 @@ class SpeechCommandsDataset(Dataset):
         self.root_dir = root_dir
         self.cfg = cfg
         self.mode = mode
+        self.unknown_commands_included = cfg.data.unknown_commands_included
 
         if cfg.data.yes_no_binary:
             self.target_commands = ['yes', 'no']
-            self.unknown_commands_included = False
         else:
             self.target_commands = cfg.data.target_commands if hasattr(cfg.data, 'target_commands') else \
                 ['yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go']
-            self.unknown_commands_included = True
+
+        self.label_mapping = {label: idx for idx, label in enumerate(self.target_commands)}
+
+        if self.unknown_commands_included:
+            self.label_mapping['_unknown_'] = len(self.label_mapping)
 
         self._init_audio_transforms()
         self._load_dataset()
@@ -155,7 +159,7 @@ class SpeechCommandsDataset(Dataset):
             waveform = resampler(waveform).numpy()
 
         if waveform.shape[1] > self.cfg.data.sample_rate:
-            waveform = waveform[:, :self.cfg.data.sample_rate]
+            waveform = waveform[:, -self.cfg.data.sample_rate:]
         elif waveform.shape[1] < self.cfg.data.sample_rate:
             padding = self.cfg.data.sample_rate - waveform.shape[1]
             waveform = np.pad(waveform, ((0, 0), (0, padding)), mode='constant')
@@ -180,6 +184,8 @@ class SpeechCommandsDataset(Dataset):
 
         if self.cfg.data.yes_no_binary:
             label = 1 if label == 'yes' else 0
+        else:
+            label = self.label_mapping.get(label, self.label_mapping['_unknown_'] if self.unknown_commands_included else -1)
 
         return data, label
 

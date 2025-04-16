@@ -42,6 +42,7 @@ class DataConfig:
     representation: Literal["waveform", "spectrogram", "melspectrogram", "mfcc"] = "waveform"
     target_commands: list[str] = dataclasses.field(default_factory=lambda: ["yes", "no"])
     yes_no_binary: bool = True
+    unknown_commands_included: bool = False
 
 
 @dataclasses.dataclass
