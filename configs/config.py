@@ -29,15 +29,20 @@ class EvalConfig:
 
 @dataclasses.dataclass
 class ModelConfig:
-    in_channels: int = 3
     base_dim: int = 16
-    num_classes: int = 10
+    architecture: Literal["ClassicModel", "M5"] = "M5"
+    num_classes: int = 2
     resume_path: Optional[str] = None
 
 
 @dataclasses.dataclass
 class DataConfig:
     root: str = "data"
+    sample_rate: int = 16000
+    representation: Literal["waveform", "spectrogram", "melspectrogram", "mfcc"] = "waveform"
+    target_commands: list[str] = dataclasses.field(default_factory=lambda: ["yes", "no"])
+    yes_no_binary: bool = True
+    unknown_commands_included: bool = False
 
 
 @dataclasses.dataclass
