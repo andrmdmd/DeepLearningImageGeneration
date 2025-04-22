@@ -1,21 +1,20 @@
 {
   "data": {
     "root": "data",
-    "representation": "waveform",
+    "representation": "melspectrogram",
     "sample_rate": 16000,
     "yes_no_binary": true,
     "target_commands": [
       "yes",
       "no"
     ],
-    "background_noise": true,
-    "n_fft": 400,
+    "n_fft": 512,
     "hop_length": 160,
-    "n_mels": 40,
+    "n_mels": 80,
     "n_mfcc": 40
   },
   "training": {
-    "engine": "sweep_engine",
+    "engine": "engine",
     "batch_size": 64,
     "epochs": 50,
     "lr": 0.001,
@@ -26,14 +25,14 @@
     "num_workers": 4
   },
   "model": {
-    "architecture": "M5"
+    "architecture": "transformer"
   },
   "sweep": {
     "config": "configuration/binary_test/sweep_config.json",
-    "project_name": "binary_test"
+    "project_name": "binary_test_transformer"
   },
   "log_dir": "logs",
-  "project_dir": "binary_test",
+  "project_dir": "binary_test_transformer",
   "project_tracker": [
     "wandb"
   ],
