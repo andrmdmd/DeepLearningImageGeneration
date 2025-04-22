@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import timm
 
 from configs import Config
+from torchaudio.models import Conformer
 
 
 class ClassicModel(nn.Module):
@@ -131,22 +132,97 @@ def ViT3M(in_channels: int, num_classes: int) -> nn.Module:
         mlp_ratio=2,
     )
 
+class ConformerClassifier(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.encoder = Conformer(
+            input_dim=80,
+            num_heads=4,
+            ffn_dim=4*80,
+            num_layers=16,
+            depthwise_conv_kernel_size=31,
+            dropout=0.1
+        )
+        self.pooling = nn.AdaptiveAvgPool1d(1)
+        self.classifier = nn.Linear(4*80, num_classes)
 
-def build_model(cfg: Config) -> nn.Module:
-    if cfg.data.yes_no_binary:
-        cfg.model.num_classes = 2
-    else:
-        cfg.model.num_classes = len(cfg.data.target_commands)
-        if cfg.data.unknown_commands_included:
+    def forward(self, x):
+        # x shape: (batch, time, features)
+        x = self.encoder(x)  # shape: (batch, time, encoder_dim)
+        x = x.transpose(1, 2)  # (batch, encoder_dim, time)
+        x = self.pooling(x).squeeze(-1)  # (batch, encoder_dim)
+        return self.classifier(x)
+
+
+class TCNNBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, dilation, dropout=0.1):
+        super(TCNNBlock, self).__init__()
+        self.conv = nn.Conv1d(
+            in_channels, out_channels, kernel_size, padding=(kernel_size - 1) * dilation // 2, dilation=dilation
+        )
+        self.norm = nn.BatchNorm1d(out_channels)
+        self.dropout = nn.Dropout(dropout)
+        self.residual = nn.Conv1d(in_channels, out_channels, kernel_size=1) if in_channels != out_channels else None
+
+    def forward(self, x):
+        residual = x if self.residual is None else self.residual(x)
+        x = self.conv(x)
+        x = self.norm(x)
+        x = F.relu(x)
+        x = self.dropout(x)
+        return x + residual
+
+
+class TCNNModel(nn.Module):
+    def __init__(self, n_input, n_output, n_channel, num_blocks, kernel_size, dropout=0.1):
+        super(TCNNModel, self).__init__()
+        self.conv1 = nn.Conv1d(n_input, n_channel, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm1d(n_channel)
+        self.pool1 = nn.MaxPool1d(4)
+        self.tcnn_blocks = nn.ModuleList([
+            TCNNBlock(
+                in_channels=n_channel,
+                out_channels=n_channel,
+                kernel_size=kernel_size,
+                dilation=2 ** i,
+                dropout=dropout
+            )
+            for i in range(num_blocks)
+        ])
+        self.fc = nn.Linear(n_channel, n_output)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = F.relu(self.bn1(x))
+        x = self.pool1(x)
+        for block in self.tcnn_blocks:
+            x = block(x)
+        x = x.mean(dim=2)  # Global average pooling
+        x = self.fc(x)
+        return x
+
+def build_model(cfg: Config, num_classes: int) -> nn.Module:
+    if cfg.model.architecture == "conformer":
+        return ConformerClassifier(num_classes=num_classes)
+    elif cfg.model.architecture == "tcnn":
+        return TCNNModel(
+            n_input=1,
+            n_output=num_classes,
+            n_channel=cfg.model.tcnn.n_channel,
+            num_blocks=cfg.model.tcnn.num_blocks,
+            kernel_size=cfg.model.tcnn.kernel_size,
+            dropout=cfg.model.tcnn.dropout
+        )
+    elif cfg.model.architecture == "m5":        if cfg.data.unknown_commands_included:
            cfg.model.num_classes += 1
         
     if cfg.model.architecture == 'M5':
-        return M5(
-        n_input=1,
-        n_output=cfg.model.num_classes,
-        stride=16,
-        n_channel=32
-    )
+            return M5(
+            n_input=1,
+            n_output=num_classes,
+            stride=16,
+            n_channel=32
+        )
     elif cfg.model.architecture == 'ViT':
         return ViT3M(
             in_channels=1,
@@ -158,3 +234,5 @@ def build_model(cfg: Config) -> nn.Module:
         )
     
    
+    else:
+        raise ValueError(f"Unknown architecture: {cfg.model.architecture}")

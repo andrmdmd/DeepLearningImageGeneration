@@ -20,7 +20,6 @@ class Engine(BaseEngine):
         self.min_loss = float("inf")
         self.current_epoch = 1
         self.max_acc = 0
-        self.metrics = Metrics(cfg.model.num_classes)
         self.early_stopping_patience = self.cfg.training.early_stopping_patience
         self.early_stopping_counter = 0
         self.stop_training = False
@@ -216,16 +215,16 @@ class Engine(BaseEngine):
     def setup_training(self):
         os.makedirs(os.path.join(self.base_dir, "checkpoint"), exist_ok=True)
 
-        model = build_model(self.cfg)
+        with self.accelerator.main_process_first():
+            train_loader, val_loader, _ = get_loader(self.cfg)
+        model = build_model(self.cfg, train_loader.dataset.num_classes)
         self.loss_fn = build_loss(self.cfg)
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=self.cfg.training.lr * self.accelerator.num_processes,
             weight_decay=self.cfg.training.weight_decay,
         )
-
-        with self.accelerator.main_process_first():
-            train_loader, val_loader, _ = get_loader(self.cfg)
+        self.metrics = Metrics(train_loader.dataset.num_classes)
 
         (
             self.model,

@@ -40,7 +40,6 @@ class DataConfig:
     root: str = "data"
     sample_rate: int = 16000
     representation: Literal["waveform", "spectrogram", "melspectrogram", "mfcc"] = "waveform"
-    target_commands: list[str] = dataclasses.field(default_factory=lambda: ["yes", "no"])
     yes_no_binary: bool = True
     n_fft: int = 400
     hop_length: int = 160
@@ -61,11 +60,33 @@ class WandbConfig:
     tags: list[str] = dataclasses.field(default_factory=list)
 
 @dataclasses.dataclass
-class Config(JSONPyWizard):
-    # Config for training option
-    training: TrainingConfig
+class ConformerConfig:
+    n_channel: int = 32
+    num_blocks: int = 4
+    d_model: int = 64
+    n_heads: int = 4
+    ff_dim: int = 128
+    conv_kernel_size: int = 31
+    dropout: float = 0.1
 
-    # Config for model option
+@dataclasses.dataclass
+class TCNNConfig:
+    n_channel: int = 32
+    num_blocks: int = 4
+    kernel_size: int = 3
+    dropout: float = 0.1
+
+@dataclasses.dataclass
+class ModelConfig:
+    base_dim: int = 16
+    resume_path: Optional[str] = None
+    architecture: Literal["m5", "conformer", "tcnn"] = "m5"
+    conformer: ConformerConfig = dataclasses.field(default_factory=ConformerConfig)
+    tcnn: TCNNConfig = dataclasses.field(default_factory=TCNNConfig)
+
+@dataclasses.dataclass
+class Config(JSONPyWizard):
+    training: TrainingConfig
     model: ModelConfig
 
     # Config for data option

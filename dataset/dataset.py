@@ -31,6 +31,7 @@ class SpeechCommandsDataset(Dataset):
         if self.unknown_commands_included:
             self.label_mapping['_unknown_'] = len(self.label_mapping)
 
+        self.num_classes = len(self.label_mapping)
         self._init_audio_transforms()
         self._load_dataset()
 
@@ -110,28 +111,36 @@ class SpeechCommandsDataset(Dataset):
             self.filepaths = self._load_split_files('testing_list.txt')
             self.labels = [os.path.relpath(p, self.root_dir).split('/')[0] for p in self.filepaths]
 
-        self.unknown_files = []
         if self.unknown_commands_included and not self.cfg.data.yes_no_binary:
-            all_commands = [d for d in os.listdir(self.root_dir) if os.path.isdir(os.path.join(self.root_dir, d))]
-            unknown_commands = [cmd for cmd in all_commands if
-                                cmd not in self.target_commands and cmd != '_background_noise_']
+            if self.mode == 'training':
+                excluded_files = set(self._load_split_files('validation_list.txt')) | set(self._load_split_files('testing_list.txt'))
+                include_if = lambda path: path not in excluded_files
+            elif self.mode == 'validation':
+                included_files = set(self._load_split_files('validation_list.txt'))
+                include_if = lambda path: path in included_files
+            elif self.mode == 'testing':
+                included_files = set(self._load_split_files('testing_list.txt'))
+                include_if = lambda path: path in included_files
+            else:
+                raise ValueError("Invalid mode. Choose from 'training', 'validation', or 'testing'.")
+
+            all_commands = [
+                d for d in os.listdir(self.root_dir)
+                if os.path.isdir(os.path.join(self.root_dir, d))
+            ]
+            unknown_commands = {
+                cmd for cmd in all_commands
+                if cmd not in self.target_commands and cmd != '_background_noise_'
+            }
+
+            self.unknown_files = []
 
             for label in unknown_commands:
                 label_dir = os.path.join(self.root_dir, label)
-                if os.path.exists(label_dir):
-                    for fname in os.listdir(label_dir):
-                        full_path = os.path.join(label_dir, fname)
-                        if self.mode == 'training':
-                            validation_files = set(self._load_split_files('validation_list.txt'))
-                            testing_files = set(self._load_split_files('testing_list.txt'))
-                            if full_path not in validation_files and full_path not in testing_files:
-                                self.unknown_files.append(full_path)
-                        elif self.mode == 'validation':
-                            if full_path in set(self._load_split_files('validation_list.txt')):
-                                self.unknown_files.append(full_path)
-                        elif self.mode == 'testing':
-                            if full_path in set(self._load_split_files('testing_list.txt')):
-                                self.unknown_files.append(full_path)
+                for fname in os.listdir(label_dir):
+                    full_path = os.path.join(label_dir, fname)
+                    if include_if(full_path):
+                        self.unknown_files.append(full_path)
 
     def _load_audio(self, filepath):
         waveform, sample_rate = librosa.load(filepath, sr=None)
