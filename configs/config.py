@@ -30,8 +30,8 @@ class EvalConfig:
 @dataclasses.dataclass
 class ModelConfig:
     base_dim: int = 16
-    architecture: Literal["ClassicModel", "M5"] = "M5"
-    num_classes: int = 2
+    architecture: Literal["ClassicModel", "M5", "transformer", "ViT"] = "M5"
+    num_classes: int = 10
     resume_path: Optional[str] = None
 
 
@@ -42,6 +42,10 @@ class DataConfig:
     representation: Literal["waveform", "spectrogram", "melspectrogram", "mfcc"] = "waveform"
     target_commands: list[str] = dataclasses.field(default_factory=lambda: ["yes", "no"])
     yes_no_binary: bool = True
+    n_fft: int = 400
+    hop_length: int = 160
+    n_mels: int = 40
+    n_mfcc: int = 40
     unknown_commands_included: bool = False
 
 

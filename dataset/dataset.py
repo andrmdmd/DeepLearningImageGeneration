@@ -24,8 +24,7 @@ class SpeechCommandsDataset(Dataset):
         if cfg.data.yes_no_binary:
             self.target_commands = ['yes', 'no']
         else:
-            self.target_commands = cfg.data.target_commands if hasattr(cfg.data, 'target_commands') else \
-                ['yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go']
+            self.target_commands = ['yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go']
 
         self.label_mapping = {label: idx for idx, label in enumerate(self.target_commands)}
 
@@ -38,47 +37,39 @@ class SpeechCommandsDataset(Dataset):
     def _init_audio_transforms(self):
         if self.cfg.data.representation == 'spectrogram':
             def spectrogram_transform(waveform):
-                n_fft = self.cfg.data.n_fft if hasattr(self.cfg.data, 'n_fft') else 400
-                hop_length = self.cfg.data.hop_length if hasattr(self.cfg.data, 'hop_length') else 160
-                stft = librosa.stft(waveform, n_fft=n_fft, hop_length=hop_length)
-                return np.abs(stft)
+                stft = librosa.stft(waveform, n_fft=self.cfg.data.n_fft, hop_length=self.cfg.data.hop_length)
+                return np.expand_dims(np.abs(stft), axis=0) 
 
             self.audio_transform = spectrogram_transform
 
         elif self.cfg.data.representation == 'melspectrogram':
             def melspectrogram_transform(waveform):
-                sample_rate = self.cfg.data.sample_rate
-                n_fft = self.cfg.data.n_fft if hasattr(self.cfg.data, 'n_fft') else 400
-                hop_length = self.cfg.data.hop_length if hasattr(self.cfg.data, 'hop_length') else 160
-                n_mels = self.cfg.data.n_mels if hasattr(self.cfg.data, 'n_mels') else 40
-                return librosa.feature.melspectrogram(
-                    y=waveform,
-                    sr=sample_rate,
-                    n_fft=n_fft,
-                    hop_length=hop_length,
-                    n_mels=n_mels
+                mel_spectrogram = librosa.feature.melspectrogram(
+                    y=waveform.squeeze(),  # Ensure waveform is 1D
+                    sr=self.cfg.data.sample_rate,
+                    n_fft=self.cfg.data.n_fft,
+                    hop_length=self.cfg.data.hop_length,
+                    n_mels=self.cfg.data.n_mels,
                 )
+                mel_spectrogram_db = librosa.power_to_db(mel_spectrogram, ref=np.max)
+                return np.expand_dims(mel_spectrogram_db, axis=0) 
 
             self.audio_transform = melspectrogram_transform
 
         elif self.cfg.data.representation == 'mfcc':
             def mfcc_transform(waveform):
-                sample_rate = self.cfg.data.sample_rate
-                n_fft = self.cfg.data.n_fft if hasattr(self.cfg.data, 'n_fft') else 400
-                hop_length = self.cfg.data.hop_length if hasattr(self.cfg.data, 'hop_length') else 160
-                n_mels = self.cfg.data.n_mels if hasattr(self.cfg.data, 'n_mels') else 40
-                n_mfcc = self.cfg.data.n_mfcc if hasattr(self.cfg.data, 'n_mfcc') else 40
+ 
                 mel_spectrogram = librosa.feature.melspectrogram(
                     y=waveform,
-                    sr=sample_rate,
-                    n_fft=n_fft,
-                    hop_length=hop_length,
-                    n_mels=n_mels
+                    sr=self.cfg.data.sample_rate,
+                    n_fft=self.cfg.data.n_fft,
+                    hop_length=self.cfg.data.hop_length,
+                    n_mels=self.cfg.data.n_mels
                 )
                 return librosa.feature.mfcc(
                     S=librosa.power_to_db(mel_spectrogram),
-                    sr=sample_rate,
-                    n_mfcc=n_mfcc
+                    sr=self.cfg.data.sample_rate,
+                    n_mfcc=self.cfg.data.n_mfcc
                 )
 
             self.audio_transform = mfcc_transform

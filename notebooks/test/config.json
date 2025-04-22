@@ -5,10 +5,10 @@
     "sample_rate": 16000,
     "yes_no_binary": true,
     "target_commands": ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go"],
-    "background_noise": true,
-    "n_fft": 400,
+    "unknown_commands_included": false,
+    "n_fft": 512,
     "hop_length": 160,
-    "n_mels": 40,
+    "n_mels": 80,
     "n_mfcc": 40
   },
   "training": {
