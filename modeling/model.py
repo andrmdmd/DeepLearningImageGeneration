@@ -137,7 +137,7 @@ def build_model(cfg: Config) -> nn.Module:
         cfg.model.num_classes = 2
     else:
         cfg.model.num_classes = len(cfg.data.target_commands)
-        if cfg.data.unknown_commands:
+        if cfg.data.unknown_commands_included:
            cfg.model.num_classes += 1
         
     if cfg.model.architecture == 'M5':
