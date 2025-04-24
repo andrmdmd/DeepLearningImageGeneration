@@ -31,10 +31,17 @@ class SpeechCommandsDataset(Dataset):
 
         self.label_mapping = {label: idx for idx, label in enumerate(self.target_commands)}
 
+        if self.cfg.data.silence_included:
+            self.target_commands.append('_silence_')
+            self.label_mapping['_silence_'] = len(self.label_mapping)
+
         if self.unknown_commands_included:
             self.label_mapping['_unknown_'] = len(self.label_mapping)
 
-        self.num_classes = len(self.label_mapping)
+        if self.cfg.data.unknown_binary_classification:
+            self.num_classes = 2
+        else:
+            self.num_classes = len(self.label_mapping)
         self._init_audio_transforms()
         self._load_dataset()
 
@@ -185,7 +192,9 @@ class SpeechCommandsDataset(Dataset):
         if hasattr(self.cfg.data, 'transform') and self.cfg.data.transform:
             data = self.cfg.data.transform(data)
 
-        if self.cfg.data.yes_no_binary:
+        if self.cfg.data.unknown_binary_classification:
+            label = 1 if label not in [*self.target_commands, "_silence_"] else 0
+        elif self.cfg.data.yes_no_binary:
             label = 1 if label == 'yes' else 0
         else:
             label = self.label_mapping.get(label, self.label_mapping['_unknown_'] if self.unknown_commands_included else -1)

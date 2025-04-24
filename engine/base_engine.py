@@ -111,7 +111,7 @@ class BaseEngine:
             show_config(self.cfg)
             config_path = os.path.join(self.base_dir, "config.json")
             with open(config_path, "w") as config_file:
-                config_dict = dataclasses.asdict(cfg)
+                config_dict = dataclasses.asdict(self.cfg)
                 json.dump(config_dict, config_file, indent=4)
             self.print_dataset_details()
         except Exception:

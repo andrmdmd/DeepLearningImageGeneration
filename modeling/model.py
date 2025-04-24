@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import timm
 
 from configs import Config
-from torchaudio.models import Conformer
 
 
 class ClassicModel(nn.Module):
@@ -133,42 +132,6 @@ def ViT3M(in_channels: int, num_classes: int) -> nn.Module:
     )
 
 
-class ConformerClassifier(nn.Module):
-    def __init__(
-        self,
-        num_classes,
-        input_dim=80,
-        input_transform=None,
-        num_heads=4,
-        num_layers=16,
-        dropout=0.1,
-        ffn_dim=320,
-        depthwise_conv_kernel_size=31,
-    ):
-        super().__init__()
-        self.input_dim = input_dim
-        self.encoder = Conformer(
-            input_dim=input_dim,
-            num_heads=num_heads,
-            ffn_dim=ffn_dim,
-            num_layers=num_layers,
-            depthwise_conv_kernel_size=depthwise_conv_kernel_size,
-            dropout=dropout,
-        )
-        self.pooling = nn.AdaptiveAvgPool1d(1)
-        self.classifier = nn.Linear(input_dim, num_classes)
-        self.input_transform = input_transform
-
-    def forward(self, x):
-        if self.input_transform is not None:
-            x = self.input_transform(x)
-        lengths = torch.full((x.size(0),), x.size(1), dtype=torch.long, device=x.device)
-        x, _ = self.encoder(x, lengths)  # shape: (batch, time, encoder_dim)
-        x = x.transpose(1, 2)  # (batch, encoder_dim, time)
-        x = self.pooling(x).squeeze(-1)  # (batch, encoder_dim)
-        return self.classifier(x)
-
-
 class FeedForwardModule(nn.Module):
     def __init__(self, d_model, expansion_factor=4, dropout=0.1):
         super().__init__()
@@ -258,10 +221,10 @@ class ConformerClassifierScratch(nn.Module):
         dropout=0.1,
         ff_expansion=4,
         conv_kernel_size=31,
-        transform_input=None,
+        input_transform=None,
     ):
         super().__init__()
-        self.transform_input = transform_input
+        self.input_transform = input_transform
         self.input_proj = nn.Linear(input_dim, d_model)
         self.conformers = nn.Sequential(
             *[
@@ -281,8 +244,8 @@ class ConformerClassifierScratch(nn.Module):
         )
 
     def forward(self, x):
-        if self.transform_input is not None:
-            x = self.transform_input(x)
+        if self.input_transform is not None:
+            x = self.input_transform(x)
         # x: (B, T, F)
         x = self.input_proj(x)  # (B, T, D)
         x = self.conformers(x)  # (B, T, D)
@@ -361,52 +324,13 @@ class EnsembleStrategy(nn.Module):
         unknown_output = self.unknown_model(x)
         desired_output = self.desired_model(x)
         return torch.cat(
-            (desired_output * (1.0 - unknown_output), unknown_output), dim=1
+            (desired_output * (1.-unknown_output[0][1]), torch.tensor([[unknown_output[0][1]]], device=unknown_output.device)), dim=1
         )
 
 
 def _build_model(cfg: Config, num_classes: int) -> nn.Module:
     if cfg.model.architecture == "Conformer":
         # x shape: (batch, time, features)
-        if cfg.data.representation == "waveform":
-            input_transform = lambda x: x.view(
-                x.shape[0],
-                x.shape[2] // cfg.model.conformer.input_dim,
-                cfg.model.conformer.input_dim,
-            )
-        elif cfg.data.representation == "mfcc":
-            input_transform = lambda x: x.view(
-                x.shape[0],
-                x.shape[3],
-                x.shape[2],
-            )
-        elif cfg.data.representation == "melspectrogram":
-            input_transform = lambda x: x.view(
-                x.shape[0],
-                x.shape[3],
-                x.shape[2],
-            )
-        elif cfg.data.representation == "spectrogram":
-            input_transform = lambda x: x.view(
-                x.shape[0],
-                x.shape[3],
-                x.shape[2],
-            )
-        else:
-            raise ValueError(f"Unknown representation: {cfg.data.representation}")
-
-        return ConformerClassifier(
-            num_classes=num_classes,
-            input_dim=cfg.model.conformer.input_dim,
-            input_transform=input_transform,
-            num_heads=cfg.model.conformer.num_heads,
-            num_layers=cfg.model.conformer.num_layers,
-            dropout=cfg.model.conformer.dropout,
-            ffn_dim=cfg.model.conformer.ffn_dim,
-            depthwise_conv_kernel_size=cfg.model.conformer.depthwise_conv_kernel_size,
-        )
-    elif cfg.model.architecture == "ConformerScratch":
-                # x shape: (batch, time, features)
         if cfg.data.representation == "waveform":
             input_transform = lambda x: x.view(
                 x.shape[0],

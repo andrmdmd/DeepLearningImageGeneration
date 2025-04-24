@@ -20,6 +20,7 @@ class TrainingConfig:
     lr: float = 0.0003
     weight_decay: float = 0.0001
     sampling_strategy: Literal["undersampling", "oversampling", "ensemble"] | None = None
+    scheduler: Literal["cosine"] | None = "cosine"
 
 
 @dataclasses.dataclass
@@ -33,12 +34,14 @@ class DataConfig:
     root: str = "data"
     sample_rate: int = 16000
     representation: Literal["waveform", "spectrogram", "melspectrogram", "mfcc"] = "waveform"
-    yes_no_binary: bool = True
     n_fft: int = 400
     hop_length: int = 160
     n_mels: int = 80
     n_mfcc: int = 80
-    unknown_commands_included: bool = False
+    yes_no_binary: bool = False
+    unknown_commands_included: bool = True
+    silence_included: bool = True
+    unknown_binary_classification: bool = False
 
 
 @dataclasses.dataclass
@@ -57,7 +60,6 @@ class ConformerConfig:
     input_dim: int = 80
     num_heads: int = 4
     num_layers: int = 16
-    ffn_dim: int = 320
     depthwise_conv_kernel_size: int = 31
     dropout: float = 0.1
 
@@ -72,7 +74,7 @@ class TCNNConfig:
 class ModelConfig:
     base_dim: int = 16
     resume_path: Optional[str] = None
-    architecture: Literal["M5", "Transformer", "ViT", "Conformer", "ConformerScratch", "TCNN"] = "M5"
+    architecture: Literal["M5", "Transformer", "ViT", "Conformer", "TCNN"] = "M5"
     conformer: ConformerConfig = dataclasses.field(default_factory=ConformerConfig)
     tcnn: TCNNConfig = dataclasses.field(default_factory=TCNNConfig)
 

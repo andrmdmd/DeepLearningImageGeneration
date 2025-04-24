@@ -11,11 +11,11 @@
           "parameters": {
             "sampling_strategy": {
               "values": [
-                "weights",
-                null,
                 "ensemble",
+                "weights",
                 "undersampling",
-                "oversampling"
+                "oversampling",
+                null
               ]
             }
           }

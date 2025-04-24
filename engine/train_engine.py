@@ -85,6 +85,12 @@ class Engine(BaseEngine):
         step_loss = 0
         start = time.time()
 
+        self.accelerator.log(
+            {
+                "scheduler_lr": self.scheduler.get_last_lr()[0],
+            }
+        )
+
         all_preds = []
         all_labels = []
         all_losses = []
@@ -152,6 +158,7 @@ class Engine(BaseEngine):
                 csv_name="train_metrics.csv",
             )
 
+        self.scheduler.step()
         self.sub_task_progress.remove_task(epoch_progress)
 
     def validate(self):
@@ -271,6 +278,12 @@ class Engine(BaseEngine):
             lr=self.cfg.training.lr * self.accelerator.num_processes,
             weight_decay=self.cfg.training.weight_decay,
         )
+        if self.cfg.training.scheduler == "cosine":
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=self.cfg.training.epochs
+            )
+        else:
+            scheduler = None
         self.metrics = Metrics(train_loader.dataset.num_classes)
 
         (
@@ -279,7 +292,8 @@ class Engine(BaseEngine):
             self.train_loader,
             self.val_loader,
             self.test_loader,
-        ) = self.accelerator.prepare(model, optimizer, train_loader, val_loader, test_loader)
+            self.scheduler
+        ) = self.accelerator.prepare(model, optimizer, train_loader, val_loader, test_loader, scheduler)
 
     def train(self):
         train_progress = self.epoch_progress.add_task(
