@@ -324,7 +324,7 @@ class EnsembleStrategy(nn.Module):
         unknown_output = self.unknown_model(x)
         desired_output = self.desired_model(x)
         return torch.cat(
-            (desired_output * (1.-unknown_output[0][1]), torch.tensor([[unknown_output[0][1]]], device=unknown_output.device)), dim=1
+            (desired_output * (1.-unknown_output[0]), torch.tensor([unknown_output[0]], device=unknown_output.device)), dim=1
         )
 
 
