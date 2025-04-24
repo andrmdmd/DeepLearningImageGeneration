@@ -44,16 +44,8 @@ class BaseEngine:
             run_number += 1
         self.base_dir = os.path.join(cfg.log_dir, cfg.project_dir, f"run_{run_number}")
         self.accelerator = accelerator
+        os.makedirs(self.base_dir)
 
-        if self.accelerator.is_main_process and is_training_engine:
-            os.makedirs(self.base_dir, exist_ok=True)
-            show_config(cfg)
-
-            # Save configuration to a JSON file
-            config_path = os.path.join(self.base_dir, "config.json")
-            with open(config_path, "w") as config_file:
-                config_dict = dataclasses.asdict(cfg)
-                json.dump(config_dict, config_file, indent=4)
         self.accelerator.wait_for_everyone()
 
         self.cfg = cfg
@@ -110,9 +102,17 @@ class BaseEngine:
             f" - 🧊 Non-trainable: {non_trainable_params}\n"
             f" - 🤯 Total: {total_params}"
         )
+        self.accelerator.log({
+            "trainable_params": trainable_params,
+        })
 
     def print_training_details(self):
         try:
+            show_config(self.cfg)
+            config_path = os.path.join(self.base_dir, "config.json")
+            with open(config_path, "w") as config_file:
+                config_dict = dataclasses.asdict(cfg)
+                json.dump(config_dict, config_file, indent=4)
             self.print_dataset_details()
         except Exception:
             pass
@@ -129,7 +129,7 @@ class BaseEngine:
         self.live_process.stop()
         self.accelerator.end_training()
 
-    def log_results(self, metrics: dict, step: int, csv_name: str = "metrics.csv"):
+    def log_results(self, metrics: dict, step: int | None = None, csv_name: str = "metrics.csv"):
         """
         Logs metrics and saves them to a CSV file.
 
@@ -139,13 +139,17 @@ class BaseEngine:
             csv_path (str): Path to the CSV file for saving metrics.
         """
         # Log metrics using the accelerator
-        self.accelerator.log(metrics, step=step)
+        if step is not None:
+            self.accelerator.log(metrics, step=step)
+        else:
+            self.accelerator.log(metrics)
+        
 
         # Save metrics to CSV
         csv_path = os.path.join(self.base_dir, csv_name)
         file_exists = os.path.exists(csv_path)
         with open(csv_path, mode="a", newline="") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=["step"] + list(metrics.keys()))
+            writer = csv.DictWriter(csv_file, fieldnames=["step"] + list(metrics.keys()) if step else list(metrics.keys()))
             if not file_exists:
                 writer.writeheader()  # Write header if file doesn't exist
-            writer.writerow({"step": step, **metrics})
+            writer.writerow({"step": step, **metrics} if step else metrics)

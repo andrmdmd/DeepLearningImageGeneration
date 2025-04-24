@@ -29,6 +29,11 @@ class Engine(BaseEngine):
             config=self.cfg.to_dict(),
             init_kwargs={"wandb": self.cfg.to_dict()["wandb"]},
         )
+        self.accelerator.log(
+            {
+                "base_dir": self.base_dir,
+            }
+        )
 
         # Resume or not
         if self.cfg.model.resume_path is not None:
@@ -211,14 +216,56 @@ class Engine(BaseEngine):
             self.stop_training = True  # Flag to stop training
 
         self.sub_task_progress.remove_task(valid_progress)
+    
+    def test(self):
+        test_progress = self.sub_task_progress.add_task("test", total=len(self.test_loader))
+        all_preds = []
+        all_labels = []
+        all_losses = []
+
+        self.model.eval()
+        with torch.no_grad():
+            for img, label in self.test_loader:
+                pred = self.model(img)
+                loss = F.cross_entropy(pred, label)
+                all_losses.append(loss.item())
+
+                batch_pred, batch_label = self.accelerator.gather_for_metrics((pred, label))
+                all_preds.append(batch_pred)
+                all_labels.append(batch_label)
+
+                self.sub_task_progress.update(test_progress, advance=1)
+
+        all_preds = torch.cat(all_preds)
+        all_labels = torch.cat(all_labels)
+
+        metric_results = self.metrics.compute(all_preds, all_labels, all_losses)
+
+        if self.accelerator.is_main_process:
+            self.accelerator.print(
+                f"test acc.: {metric_results['accuracy']:.3f}, loss: {metric_results['loss']:.3f}, "
+                f"precision: {metric_results['precision']:.3f}, recall: {metric_results['recall']:.3f}, f1: {metric_results['f1']:.3f}"
+            )
+            self.log_results(
+                {
+                    "acc/test": metric_results["accuracy"],
+                    "loss/test": metric_results["loss"],
+                    "precision/test": metric_results["precision"],
+                    "recall/test": metric_results["recall"],
+                    "f1/test": metric_results["f1"],
+                },
+                csv_name="test_metrics.csv",
+            )
+
+        self.sub_task_progress.remove_task(test_progress)
 
     def setup_training(self):
         os.makedirs(os.path.join(self.base_dir, "checkpoint"), exist_ok=True)
 
         with self.accelerator.main_process_first():
-            train_loader, val_loader, _ = get_loader(self.cfg)
+            train_loader, val_loader, test_loader = get_loader(self.cfg)
         model = build_model(self.cfg, train_loader.dataset.num_classes)
-        self.loss_fn = build_loss(self.cfg)
+        self.loss_fn = build_loss(self.cfg, torch.tensor(train_loader.dataset.class_weights).to(self.accelerator.device) if self.cfg.training.sampling_strategy == "weights" else None)
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=self.cfg.training.lr * self.accelerator.num_processes,
@@ -231,7 +278,8 @@ class Engine(BaseEngine):
             self.optimizer,
             self.train_loader,
             self.val_loader,
-        ) = self.accelerator.prepare(model, optimizer, train_loader, val_loader)
+            self.test_loader,
+        ) = self.accelerator.prepare(model, optimizer, train_loader, val_loader, test_loader)
 
     def train(self):
         train_progress = self.epoch_progress.add_task(
@@ -254,6 +302,22 @@ class Engine(BaseEngine):
                 break
             self.epoch_progress.update(train_progress, advance=1, acc=self.max_acc)
         self.epoch_progress.stop_task(train_progress)
+        self.accelerator.wait_for_everyone()
+        self.accelerator.print("Loading best model for testing...")
+        
+        # Load the state dictionary from the .pth file
+        best_model_path = os.path.join(self.base_dir, "best.pth")
+        if not os.path.exists(best_model_path):
+            raise FileNotFoundError(f"Model file not found at {best_model_path}")
+        
+        state_dict = torch.load(best_model_path, map_location=self.accelerator.device)
+        
+        # Load the state dictionary into the model
+        self.model.load_state_dict(state_dict)
+        
+        self.accelerator.print("Testing...")
+        self.test()
+        self.accelerator.wait_for_everyone()
 
     def reset(self):
         super().reset()

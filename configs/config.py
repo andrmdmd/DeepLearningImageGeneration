@@ -19,20 +19,13 @@ class TrainingConfig:
     mixed_precision: Literal["no", "fp16", "bf16"] = "no"
     lr: float = 0.0003
     weight_decay: float = 0.0001
+    sampling_strategy: Literal["undersampling", "oversampling", "ensemble"] | None = None
 
 
 @dataclasses.dataclass
 class EvalConfig:
     num_workers: int = 4
     batch_size: int = 32
-
-
-@dataclasses.dataclass
-class ModelConfig:
-    base_dim: int = 16
-    architecture: Literal["ClassicModel", "M5", "transformer", "ViT"] = "M5"
-    num_classes: int = 10
-    resume_path: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -43,8 +36,8 @@ class DataConfig:
     yes_no_binary: bool = True
     n_fft: int = 400
     hop_length: int = 160
-    n_mels: int = 40
-    n_mfcc: int = 40
+    n_mels: int = 80
+    n_mfcc: int = 80
     unknown_commands_included: bool = False
 
 
@@ -61,12 +54,11 @@ class WandbConfig:
 
 @dataclasses.dataclass
 class ConformerConfig:
-    n_channel: int = 32
-    num_blocks: int = 4
-    d_model: int = 64
-    n_heads: int = 4
-    ff_dim: int = 128
-    conv_kernel_size: int = 31
+    input_dim: int = 80
+    num_heads: int = 4
+    num_layers: int = 16
+    ffn_dim: int = 320
+    depthwise_conv_kernel_size: int = 31
     dropout: float = 0.1
 
 @dataclasses.dataclass
@@ -80,7 +72,7 @@ class TCNNConfig:
 class ModelConfig:
     base_dim: int = 16
     resume_path: Optional[str] = None
-    architecture: Literal["m5", "conformer", "tcnn"] = "m5"
+    architecture: Literal["M5", "Transformer", "ViT", "Conformer", "ConformerScratch", "TCNN"] = "M5"
     conformer: ConformerConfig = dataclasses.field(default_factory=ConformerConfig)
     tcnn: TCNNConfig = dataclasses.field(default_factory=TCNNConfig)
 

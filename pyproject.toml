@@ -1,7 +1,7 @@
 [project]
-name = "deep-learning-template"
+name = "speechrecognition"
 version = "0.1.0"
-description = "A template for deep learning projects"
+description = "Speech Recognition with PyTorch"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

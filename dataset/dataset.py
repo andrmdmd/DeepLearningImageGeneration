@@ -7,6 +7,9 @@ import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 import torchaudio
 import numpy as np
+import random
+from torch.utils.data import Sampler, WeightedRandomSampler
+from collections import Counter
 
 
 class SpeechCommandsDataset(Dataset):
@@ -84,7 +87,7 @@ class SpeechCommandsDataset(Dataset):
             for line in f:
                 rel_path = line.strip()
                 label = rel_path.split('/')[0]
-                if label in self.target_commands or (self.unknown_commands_included and label == '_background_noise_'):
+                if label in self.target_commands or (self.unknown_commands_included and label != '_background_noise_'):
                     filepaths.append(os.path.join(self.root_dir, rel_path))
         return filepaths
 
@@ -96,14 +99,28 @@ class SpeechCommandsDataset(Dataset):
             validation_files = set(self._load_split_files('validation_list.txt'))
             testing_files = set(self._load_split_files('testing_list.txt'))
 
-            for label in self.target_commands:
-                label_dir = os.path.join(self.root_dir, label)
-                if os.path.exists(label_dir):
+            if self.unknown_commands_included and not self.cfg.data.yes_no_binary:
+                all_commands = [
+                    d for d in os.listdir(self.root_dir)
+                    if os.path.isdir(os.path.join(self.root_dir, d)) and d != '_background_noise_'
+                ]
+
+                for label in all_commands:
+                    label_dir = os.path.join(self.root_dir, label)
                     for fname in os.listdir(label_dir):
                         full_path = os.path.join(label_dir, fname)
-                        if full_path not in validation_files and full_path not in testing_files:
+                        if full_path not in validation_files | testing_files:
                             self.filepaths.append(full_path)
                             self.labels.append(label)
+            else:
+                for label in self.target_commands:
+                    label_dir = os.path.join(self.root_dir, label)
+                    if os.path.exists(label_dir):
+                        for fname in os.listdir(label_dir):
+                            full_path = os.path.join(label_dir, fname)
+                            if full_path not in validation_files | testing_files:
+                                self.filepaths.append(full_path)
+                                self.labels.append(label)
         elif self.mode == 'validation':
             self.filepaths = self._load_split_files('validation_list.txt')
             self.labels = [os.path.relpath(p, self.root_dir).split('/')[0] for p in self.filepaths]
@@ -111,36 +128,22 @@ class SpeechCommandsDataset(Dataset):
             self.filepaths = self._load_split_files('testing_list.txt')
             self.labels = [os.path.relpath(p, self.root_dir).split('/')[0] for p in self.filepaths]
 
-        if self.unknown_commands_included and not self.cfg.data.yes_no_binary:
-            if self.mode == 'training':
-                excluded_files = set(self._load_split_files('validation_list.txt')) | set(self._load_split_files('testing_list.txt'))
-                include_if = lambda path: path not in excluded_files
-            elif self.mode == 'validation':
-                included_files = set(self._load_split_files('validation_list.txt'))
-                include_if = lambda path: path in included_files
-            elif self.mode == 'testing':
-                included_files = set(self._load_split_files('testing_list.txt'))
-                include_if = lambda path: path in included_files
-            else:
-                raise ValueError("Invalid mode. Choose from 'training', 'validation', or 'testing'.")
-
-            all_commands = [
-                d for d in os.listdir(self.root_dir)
-                if os.path.isdir(os.path.join(self.root_dir, d))
-            ]
-            unknown_commands = {
-                cmd for cmd in all_commands
-                if cmd not in self.target_commands and cmd != '_background_noise_'
-            }
-
-            self.unknown_files = []
-
-            for label in unknown_commands:
-                label_dir = os.path.join(self.root_dir, label)
-                for fname in os.listdir(label_dir):
-                    full_path = os.path.join(label_dir, fname)
-                    if include_if(full_path):
-                        self.unknown_files.append(full_path)
+        class_counts = Counter(self.labels)
+        print(f"Class balance in {self.mode} data:")
+        for label, count in class_counts.items():
+            if label in self.target_commands:
+                print(f"  {label}: {count}")
+        unknown_count = sum(count for label, count in class_counts.items() if label not in self.target_commands)
+        if unknown_count > 0:
+            print(f"  _unknown_: {unknown_count}")
+            print(f"  unknown percentage: {unknown_count / len(self.filepaths) * 100:.2f}%")
+        
+        # set weights of labels on the basis of class_counts and unknows_count (unknown is last label in label_mapping)
+        if self.unknown_commands_included and self.cfg.training.sampling_strategy == 'weights':
+            self.class_weights = [1.0 / class_counts[label] for label in list(self.label_mapping.keys())[:-1]]
+            self.class_weights.append(1.0 / unknown_count)
+            total_weight = sum(self.class_weights)
+            self.class_weights = [w / total_weight for w in self.class_weights]
 
     def _load_audio(self, filepath):
         waveform, sample_rate = librosa.load(filepath, sr=None)
@@ -189,6 +192,85 @@ class SpeechCommandsDataset(Dataset):
 
         return data, label
 
+class DynamicUnderSampler(Sampler): 
+    def __init__(self, dataset, num_samples_per_class=None):
+        """
+        Custom sampler for dynamic undersampling.
+        Args:
+            dataset: The dataset to sample from.
+            num_samples_per_class: Number of samples per class (optional).
+        """
+        self.dataset = dataset
+        self.num_samples_per_class = num_samples_per_class
+        self.class_indices = self._get_class_indices()
+        self.min_count = min(len(indices) for indices in self.class_indices.values())
+        if self.num_samples_per_class:
+            self.min_count = min(self.min_count, self.num_samples_per_class)
+
+
+    def _get_class_indices(self):
+        """
+        Group dataset indices by class.
+        Returns:
+            A dictionary mapping class labels to a list of indices.
+        """
+        class_indices = {}
+        for idx, (_, label) in enumerate(self.dataset):
+            if label not in class_indices:
+                class_indices[label] = []
+            class_indices[label].append(idx)
+        return class_indices
+
+    def __iter__(self):
+        """
+        Generate a new set of indices for undersampling at the start of each epoch.
+        """
+        sampled_indices = []
+        for indices in self.class_indices.values():
+            sampled_indices.extend(random.sample(indices, self.min_count))
+        random.shuffle(sampled_indices)
+        return iter(sampled_indices)
+
+    def __len__(self):
+        """
+        Return the total number of samples.
+        """
+        return self.min_count * len(self.class_indices)
+
+class DynamicOverSampler(Sampler):
+    def __init__(self, dataset):
+        """
+        Custom sampler for dynamic oversampling.
+        Args:
+            dataset: The dataset to sample from.
+        """
+        self.dataset = dataset
+
+    def _get_sample_weights(self):
+        """
+        Calculate sample weights based on class frequencies.
+        Returns:
+            A list of weights for each sample in the dataset.
+        """
+        label_counts = Counter([self.dataset[i][1] for i in range(len(self.dataset))])
+        total_samples = sum(label_counts.values())
+        class_weights = {label: total_samples / count for label, count in label_counts.items()}
+        sample_weights = [class_weights[label] for _, label in self.dataset]
+        return sample_weights
+
+    def __iter__(self):
+        """
+        Generate a new set of indices for oversampling at the start of each epoch.
+        """
+        sample_weights = self._get_sample_weights()
+        sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
+        return iter(sampler)
+
+    def __len__(self):
+        """
+        Return the total number of samples.
+        """
+        return len(self.dataset)
 
 def get_loader(
         cfg
@@ -211,11 +293,22 @@ def get_loader(
         mode='testing'
     )
 
+    if cfg.training.sampling_strategy == 'undersampling':
+        sampler = DynamicUnderSampler(train_dataset)
+        shuffle = False
+    elif cfg.training.sampling_strategy == 'oversampling':
+        sampler = DynamicOverSampler(train_dataset)
+        shuffle = False
+    else:
+        sampler = None
+        shuffle = True
+
     train_loader = DataLoader(
         train_dataset,
         num_workers=cfg.training.num_workers,
         batch_size=cfg.training.batch_size,
-        shuffle=True,
+        shuffle=shuffle,
+        sampler=sampler,
         pin_memory=True if torch.cuda.is_available() else False
     )
 
