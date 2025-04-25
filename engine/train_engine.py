@@ -85,11 +85,12 @@ class Engine(BaseEngine):
         step_loss = 0
         start = time.time()
 
-        self.accelerator.log(
-            {
-                "scheduler_lr": self.scheduler.get_last_lr()[0],
-            }
-        )
+        if self.scheduler is not None:
+            self.accelerator.log(
+                {
+                    "scheduler_lr": self.scheduler.get_last_lr()[0],
+                }
+            )
 
         all_preds = []
         all_labels = []
@@ -157,8 +158,8 @@ class Engine(BaseEngine):
                 step=self.current_epoch * len(self.train_loader),  # Use train steps
                 csv_name="train_metrics.csv",
             )
-
-        self.scheduler.step()
+        if self.scheduler is not None:
+            self.scheduler.step()
         self.sub_task_progress.remove_task(epoch_progress)
 
     def validate(self):
