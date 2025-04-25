@@ -4,6 +4,8 @@ import random
 import librosa
 import soundfile as sf
 
+SEED = 1457
+
 def preprocess_wav_files(base_dir):
     background_noise_dir = os.path.join(base_dir, "_background_noise_")
     silence_dir = os.path.join(base_dir, "_silence_")
@@ -33,6 +35,7 @@ def preprocess_wav_files(base_dir):
     num_clips = len(clip_paths)
     sample_size = min(260, num_clips // 10)
 
+    random.seed(SEED)
     validation_sample = random.sample(clip_paths, sample_size)
     remaining_clips = list(set(clip_paths) - set(validation_sample))
     testing_sample = random.sample(remaining_clips, sample_size)
