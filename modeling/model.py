@@ -275,7 +275,7 @@ class ConformerClassifier(nn.Module):
         )
         self.pooling = nn.AdaptiveAvgPool1d(1)
         self.classifier = nn.Linear(input_dim, num_classes)
-        self.input_transfrom = input_transform
+        self.input_transform = input_transform
 
     def forward(self, x):
         if self.input_transform is not None:
