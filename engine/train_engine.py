@@ -186,22 +186,6 @@ class Engine(BaseEngine):
 
         metric_results = self.metrics.compute(all_preds, all_labels, all_losses)
 
-        if self.accelerator.is_main_process:
-            self.accelerator.print(
-                f"val. acc.: {metric_results['accuracy']:.3f}, loss: {metric_results['loss']:.3f}, "
-                f"precision: {metric_results['precision']:.3f}, recall: {metric_results['recall']:.3f}, f1: {metric_results['f1']:.3f}"
-            )
-            self.log_results(
-                {
-                    "acc/val": metric_results["accuracy"],
-                    "loss/val": metric_results["loss"],
-                    "precision/val": metric_results["precision"],
-                    "recall/val": metric_results["recall"],
-                    "f1/val": metric_results["f1"],
-                },
-                step=self.current_epoch * len(self.train_loader),  # Use train steps
-                csv_name="validation_metrics.csv",
-            )
         if self.accelerator.is_main_process and metric_results["accuracy"] > self.max_acc:
             save_path = os.path.join(self.base_dir, "checkpoint")
             self.accelerator.print(
@@ -217,6 +201,24 @@ class Engine(BaseEngine):
             torch.save(unwrapped_model.state_dict(), os.path.join(self.base_dir, "best.pth"))
         else:
             self.early_stopping_counter += 1  # Increment counter if no improvement
+            
+        if self.accelerator.is_main_process:
+            self.accelerator.print(
+                f"val. acc.: {metric_results['accuracy']:.3f}, loss: {metric_results['loss']:.3f}, "
+                f"precision: {metric_results['precision']:.3f}, recall: {metric_results['recall']:.3f}, f1: {metric_results['f1']:.3f}"
+            )
+            self.log_results(
+                {
+                    "acc/val": metric_results["accuracy"],
+                    "max_acc/val": self.max_acc,
+                    "loss/val": metric_results["loss"],
+                    "precision/val": metric_results["precision"],
+                    "recall/val": metric_results["recall"],
+                    "f1/val": metric_results["f1"],
+                },
+                step=self.current_epoch * len(self.train_loader),  # Use train steps
+                csv_name="validation_metrics.csv",
+            )
 
         # Check for early stopping
         if self.early_stopping_counter >= self.early_stopping_patience:
