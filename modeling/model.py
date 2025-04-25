@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import timm
 
 from configs import Config
+from torchaudio.models.conformer import Conformer
 
 
 class ClassicModel(nn.Module):
@@ -252,6 +253,38 @@ class ConformerClassifierScratch(nn.Module):
         x = x.transpose(1, 2)  # (B, D, T)
         x = self.pooling(x).squeeze(-1)  # (B, D)
         return self.classifier(x)  # (B, num_classes)
+    
+class ConformerClassifier(nn.Module):
+    def __init__(self,
+        input_dim=80,
+        n_heads=4,
+        num_layers=4,
+        num_classes=11,
+        dropout=0.1,
+        ff_expansion=4,
+        conv_kernel_size=31,
+        input_transform=None):
+        super().__init__()
+        self.encoder = Conformer(
+            input_dim=input_dim,
+            num_heads=n_heads,
+            ffn_dim=ff_expansion*input_dim,
+            num_layers=num_layers,
+            depthwise_conv_kernel_size=conv_kernel_size,
+            dropout=dropout
+        )
+        self.pooling = nn.AdaptiveAvgPool1d(1)
+        self.classifier = nn.Linear(input_dim, num_classes)
+        self.input_transfrom = input_transform
+
+    def forward(self, x):
+        if self.input_transform is not None:
+            x = self.input_transform(x)
+        lengths = torch.full((x.size(0),), x.size(1), dtype=torch.long, device=x.device)
+        x, _ = self.encoder(x, lengths)  # shape: (batch, time, encoder_dim)
+        x = x.transpose(1, 2)  # (batch, encoder_dim, time)
+        x = self.pooling(x).squeeze(-1)  # (batch, encoder_dim)
+        return self.classifier(x)
 
 
 class TCNNBlock(nn.Module):
@@ -358,9 +391,8 @@ def _build_model(cfg: Config, num_classes: int) -> nn.Module:
         else:
             raise ValueError(f"Unknown representation: {cfg.data.representation}")
 
-        return ConformerClassifierScratch(
+        return ConformerClassifier(
             input_dim=cfg.model.conformer.input_dim,
-            d_model=144,
             input_transform=input_transform,
             num_classes=num_classes,
             n_heads=cfg.model.conformer.num_heads,
