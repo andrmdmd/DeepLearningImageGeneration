@@ -18,7 +18,6 @@
             "input_dim": 80,
             "num_heads": 4,
             "num_layers": 16,
-            "ffn_dim": 320,
             "depthwise_conv_kernel_size": 31,
             "dropout": 0.1
         },
