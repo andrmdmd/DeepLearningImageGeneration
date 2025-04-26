@@ -64,19 +64,11 @@ class ConformerConfig:
     dropout: float = 0.1
 
 @dataclasses.dataclass
-class TCNNConfig:
-    n_channel: int = 32
-    num_blocks: int = 4
-    kernel_size: int = 3
-    dropout: float = 0.1
-
-@dataclasses.dataclass
 class ModelConfig:
     base_dim: int = 16
     resume_path: Optional[str] = None
-    architecture: Literal["M5", "Transformer", "ViT", "Conformer", "TCNN"] = "M5"
+    architecture: Literal["M5", "Transformer", "ViT", "Conformer"] = "M5"
     conformer: ConformerConfig = dataclasses.field(default_factory=ConformerConfig)
-    tcnn: TCNNConfig = dataclasses.field(default_factory=TCNNConfig)
 
 @dataclasses.dataclass
 class Config(JSONPyWizard):

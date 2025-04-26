@@ -42,6 +42,7 @@ class SpeechCommandsDataset(Dataset):
             self.num_classes = 2
         else:
             self.num_classes = len(self.label_mapping)
+        print("num_classes: ", self.num_classes)
         self._init_audio_transforms()
         self._load_dataset()
 
