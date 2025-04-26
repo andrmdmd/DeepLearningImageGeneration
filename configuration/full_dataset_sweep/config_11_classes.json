@@ -16,7 +16,7 @@
         "resume_path": null,
         "conformer": {
             "input_dim": 80,
-            "num_heads": 4,
+            "num_heads": 2,
             "num_layers": 8,
             "depthwise_conv_kernel_size": 31,
             "dropout": 0.1
