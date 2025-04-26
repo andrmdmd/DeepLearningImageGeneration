@@ -39,7 +39,7 @@ if __name__ == "__main__":
         if cfg.model.resume_path is not None:
             json_cfg["model"]["resume_path"] = cfg.model.resume_path
 
-    merge_configs(cfg, json_cfg)
+        merge_configs(cfg, json_cfg)
 
     with open(cfg.sweep.config) as f:
         sweep_configuration = yaml.safe_load(f)

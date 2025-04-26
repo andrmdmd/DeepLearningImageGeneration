@@ -1,0 +1,67 @@
+{
+    "training": {
+        "engine": "engine",
+        "early_stopping_patience": 5,
+        "label_smoothing": 0.0,
+        "batch_size": 32,
+        "val_freq": 1,
+        "epochs": 50,
+        "num_workers": 4,
+        "accum_iter": 1,
+        "mixed_precision": "no",
+        "lr": 0.0003,
+        "weight_decay": 0.0001,
+        "sampling_strategy": null
+    },
+    "model": {
+        "base_dim": 16,
+        "resume_path": null,
+        "architecture": "ConformerScratch",
+        "conformer": {
+            "input_dim": 80,
+            "num_heads": 1,
+            "num_layers": 2,
+            "ffn_dim": 320,
+            "depthwise_conv_kernel_size": 31,
+            "dropout": 0.1
+        },
+        "tcnn": {
+            "n_channel": 32,
+            "num_blocks": 4,
+            "kernel_size": 3,
+            "dropout": 0.1
+        }
+    },
+    "data": {
+        "root": "data",
+        "sample_rate": 16000,
+        "representation": "mfcc",
+        "n_fft": 400,
+        "hop_length": 160,
+        "n_mels": 80,
+        "n_mfcc": 80,
+        "yes_no_binary": false,
+        "unknown_commands_included": true
+    },
+    "evaluation": {
+        "num_workers": 4,
+        "batch_size": 32
+    },
+    "wandb": {
+        "name": "ConformerScratch",
+        "tags": ["ConformerScratchSizeTest"]
+    },
+    "sweep": {
+        "name": null,
+        "config": "",
+        "project_name": ""
+    },
+    "project_tracker": [
+        "wandb"
+    ],
+    "project_dir": "conformer_scratch_size_config",
+    "log_dir": "logs",
+    "mixed_precision": "no",
+    "seed": 0,
+    "config": null
+}

@@ -1,0 +1,26 @@
+{
+  "method": "grid",
+  "metric": {
+    "name": "acc/val",
+    "goal": "maximize"
+  },
+  "parameters": {
+    "sweep": {
+      "parameters": {
+        "training": {
+          "parameters": {
+            "sampling_strategy": {
+              "values": [
+                "ensemble",
+                "weights",
+                "undersampling",
+                "oversampling",
+                null
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

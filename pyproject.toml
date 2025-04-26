@@ -1,7 +1,7 @@
 [project]
-name = "deep-learning-template"
+name = "speechrecognition"
 version = "0.1.0"
-description = "A template for deep learning projects"
+description = "Speech Recognition with PyTorch"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -15,6 +15,7 @@ dependencies = [
     "pandas>=2.2.3",
     "rich==13.9.4",
     "scikit-learn>=1.6.1",
+    "soundfile>=0.13.1",
     "tabulate==0.9.0",
     "tensorboardx==2.6.2.2",
     "timm>=1.0.15",
