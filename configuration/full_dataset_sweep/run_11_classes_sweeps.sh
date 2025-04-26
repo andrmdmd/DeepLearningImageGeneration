@@ -16,6 +16,6 @@ for ARCHITECTURE in "${!ARCHITECTURES_REPRESENTATIONS[@]}"; do
     --model.architecture="$ARCHITECTURE" \
     --data.representation="$REPRESENTATION" \
     --project-dir="$BASE_DIR" \
-    --wandb.name="$ARCHITECTURE" \
-    --sweep.name="$ARCHITECTURE"
+    --wandb.name="11_class_$ARCHITECTURE" \
+    --sweep.name="11_class_$ARCHITECTURE"
 done
