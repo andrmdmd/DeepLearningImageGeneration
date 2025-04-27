@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import timm
 
 from configs import Config
+from torchaudio.models.conformer import Conformer
 
 
 class ClassicModel(nn.Module):
@@ -62,59 +63,59 @@ class M5(nn.Module):
         x = self.fc1(x)
         return x.squeeze(1)
 
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
         position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
+        )
         pe = torch.zeros(max_len, 1, d_model)
         pe[:, 0, 0::2] = torch.sin(position * div_term)
         pe[:, 0, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.pe[:x.size(0)]
+        x = x + self.pe[: x.size(0)]
         return self.dropout(x)
-    
+
+
 class SpeechTransformer(nn.Module):
     def __init__(self, num_classes, d_model=256, nhead=8, num_layers=6):
         super().__init__()
-        
+
         self.embed = nn.Sequential(
-            nn.Linear(101, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model),
-            nn.Dropout(0.1)
+            nn.Linear(101, d_model), nn.GELU(), nn.LayerNorm(d_model), nn.Dropout(0.1)
         )
-        
+
         self.pos_encoder = PositionalEncoding(d_model)
-        
+
         # Transformer with relative positional encoding (Shaw et al., 2018)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
             dim_feedforward=4 * d_model,
             dropout=0.1,
-            activation='gelu'
+            activation="gelu",
         )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        
+
         self.pooling = nn.AdaptiveAvgPool1d(1)
         self.classifier = nn.Sequential(
-            nn.LayerNorm(d_model),
-            nn.Linear(d_model, num_classes)
+            nn.LayerNorm(d_model), nn.Linear(d_model, num_classes)
         )
-    
+
     def forward(self, x):
         # x: [B, T, F]
-        x = self.embed(x)                  # -> [B, T, d_model]
-        x = x.transpose(0, 1)             # -> [T, B, d_model]
+        x = self.embed(x)  # -> [B, T, d_model]
+        x = x.transpose(0, 1)  # -> [T, B, d_model]
         x = self.pos_encoder(x)
         x = self.encoder(x)
         x = x.transpose(0, 1).transpose(1, 2)  # -> [B, d_model, T]
-        x = self.pooling(x).squeeze(2)         # -> [B, d_model]
+        x = self.pooling(x).squeeze(2)  # -> [B, d_model]
         return self.classifier(x)
 
 
@@ -130,31 +131,114 @@ def ViT3M(in_channels: int, num_classes: int) -> nn.Module:
         num_heads=12,
         mlp_ratio=2,
     )
-
-
-def build_model(cfg: Config) -> nn.Module:
-    if cfg.data.yes_no_binary:
-        cfg.model.num_classes = 2
-    else:
-        cfg.model.num_classes = len(cfg.data.target_commands)
-        if cfg.data.unknown_commands_included:
-           cfg.model.num_classes += 1
-        
-    if cfg.model.architecture == 'M5':
-        return M5(
-        n_input=1,
-        n_output=cfg.model.num_classes,
-        stride=16,
-        n_channel=32
-    )
-    elif cfg.model.architecture == 'ViT':
-        return ViT3M(
-            in_channels=1,
-            num_classes=cfg.model.num_classes
-        )
-    elif cfg.model.architecture == 'transformer':
-        return SpeechTransformer(
-            num_classes=cfg.model.num_classes,
-        )
     
-   
+class ConformerClassifier(nn.Module):
+    def __init__(self,
+        input_dim=80,
+        n_heads=4,
+        num_layers=4,
+        num_classes=11,
+        dropout=0.1,
+        ff_expansion=4,
+        conv_kernel_size=31,
+        input_transform=None):
+        super().__init__()
+        self.encoder = Conformer(
+            input_dim=input_dim,
+            num_heads=n_heads,
+            ffn_dim=ff_expansion*input_dim,
+            num_layers=num_layers,
+            depthwise_conv_kernel_size=conv_kernel_size,
+            dropout=dropout
+        )
+        self.pooling = nn.AdaptiveAvgPool1d(1)
+        self.classifier = nn.Linear(input_dim, num_classes)
+        self.input_transform = input_transform
+
+    def forward(self, x):
+        if self.input_transform is not None:
+            x = self.input_transform(x)
+        lengths = torch.full((x.size(0),), x.size(1), dtype=torch.long, device=x.device)
+        x, _ = self.encoder(x, lengths)  # shape: (batch, time, encoder_dim)
+        x = x.transpose(1, 2)  # (batch, encoder_dim, time)
+        x = self.pooling(x).squeeze(-1)  # (batch, encoder_dim)
+        return self.classifier(x)
+
+
+class EnsembleStrategy(nn.Module):
+    def __init__(self, unknown_model, desired_model):
+        super().__init__()
+        self.unknown_model = unknown_model
+        self.desired_model = desired_model
+
+    def forward(self, x):
+        unknown_output = self.unknown_model(x)
+        desired_output = self.desired_model(x)
+        return torch.cat(
+            (desired_output * (1.-unknown_output[0]), unknown_output), dim=1
+        )
+
+
+def _build_model(cfg: Config, num_classes: int) -> nn.Module:
+    if cfg.model.architecture == "Conformer":
+        # x shape: (batch, time, features)
+        if cfg.data.representation == "waveform":
+            input_transform = lambda x: x.view(
+                x.shape[0],
+                x.shape[2] // cfg.model.conformer.input_dim,
+                cfg.model.conformer.input_dim,
+            )
+        elif cfg.data.representation == "mfcc":
+            input_transform = lambda x: x.view(
+                x.shape[0],
+                x.shape[3],
+                x.shape[2],
+            )
+        elif cfg.data.representation == "melspectrogram":
+            input_transform = lambda x: x.view(
+                x.shape[0],
+                x.shape[3],
+                x.shape[2],
+            )
+        elif cfg.data.representation == "spectrogram":
+            input_transform = lambda x: x.view(
+                x.shape[0],
+                x.shape[3],
+                x.shape[2],
+            )
+        else:
+            raise ValueError(f"Unknown representation: {cfg.data.representation}")
+
+        return ConformerClassifier(
+            input_dim=cfg.model.conformer.input_dim,
+            input_transform=input_transform,
+            num_classes=num_classes,
+            n_heads=cfg.model.conformer.num_heads,
+            num_layers=cfg.model.conformer.num_layers,
+            dropout=cfg.model.conformer.dropout,
+            ff_expansion=4,
+            conv_kernel_size=cfg.model.conformer.depthwise_conv_kernel_size,
+        )
+    elif cfg.model.architecture == "M5":
+        return M5(n_input=1, n_output=num_classes, stride=16, n_channel=32)
+    elif cfg.model.architecture == "ViT":
+        return ViT3M(in_channels=1, num_classes=num_classes)
+    elif cfg.model.architecture == "Transformer":
+        return SpeechTransformer(
+            num_classes=num_classes,
+        )
+    else:
+        raise ValueError(f"Unknown architecture: {cfg.model.architecture}")
+
+
+def build_model(cfg: Config, num_classes: int) -> nn.Module:
+    if (
+        cfg.data.unknown_commands_included
+        and cfg.training.sampling_strategy == "ensemble"
+    ):
+        return EnsembleStrategy(
+            unknown_model=_build_model(cfg, 1),
+            desired_model=_build_model(cfg, num_classes - 1),
+        )
+    else:
+        return _build_model(cfg, num_classes)

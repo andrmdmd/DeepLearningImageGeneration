@@ -19,6 +19,8 @@ class TrainingConfig:
     mixed_precision: Literal["no", "fp16", "bf16"] = "no"
     lr: float = 0.0003
     weight_decay: float = 0.0001
+    sampling_strategy: Literal["undersampling", "oversampling", "ensemble"] | None = None
+    scheduler: Literal["cosine"] | None = "cosine"
 
 
 @dataclasses.dataclass
@@ -28,25 +30,18 @@ class EvalConfig:
 
 
 @dataclasses.dataclass
-class ModelConfig:
-    base_dim: int = 16
-    architecture: Literal["ClassicModel", "M5", "transformer", "ViT"] = "M5"
-    num_classes: int = 10
-    resume_path: Optional[str] = None
-
-
-@dataclasses.dataclass
 class DataConfig:
     root: str = "data"
     sample_rate: int = 16000
     representation: Literal["waveform", "spectrogram", "melspectrogram", "mfcc"] = "waveform"
-    target_commands: list[str] = dataclasses.field(default_factory=lambda: ["yes", "no"])
-    yes_no_binary: bool = True
     n_fft: int = 400
     hop_length: int = 160
-    n_mels: int = 40
-    n_mfcc: int = 40
-    unknown_commands_included: bool = False
+    n_mels: int = 80
+    n_mfcc: int = 80
+    yes_no_binary: bool = False
+    unknown_commands_included: bool = True
+    silence_included: bool = True
+    unknown_binary_classification: bool = False
 
 
 @dataclasses.dataclass
@@ -61,11 +56,23 @@ class WandbConfig:
     tags: list[str] = dataclasses.field(default_factory=list)
 
 @dataclasses.dataclass
-class Config(JSONPyWizard):
-    # Config for training option
-    training: TrainingConfig
+class ConformerConfig:
+    input_dim: int = 80
+    num_heads: int = 4
+    num_layers: int = 16
+    depthwise_conv_kernel_size: int = 31
+    dropout: float = 0.1
 
-    # Config for model option
+@dataclasses.dataclass
+class ModelConfig:
+    base_dim: int = 16
+    resume_path: Optional[str] = None
+    architecture: Literal["M5", "Transformer", "ViT", "Conformer"] = "M5"
+    conformer: ConformerConfig = dataclasses.field(default_factory=ConformerConfig)
+
+@dataclasses.dataclass
+class Config(JSONPyWizard):
+    training: TrainingConfig
     model: ModelConfig
 
     # Config for data option

@@ -13,3 +13,5 @@ def merge_configs(dataclass_cfg, dict_conf):
                 merge_configs(sub_cfg, value)
             else:
                 setattr(dataclass_cfg, key, value)
+        else:
+            raise ValueError(f"Key {key} not found in dataclass config.")
