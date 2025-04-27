@@ -9,12 +9,6 @@
       "parameters": {
         "training": {
           "parameters": {
-            "epochs": {
-              "values": [
-                10,
-                50
-              ]
-            },
             "weight_decay": {
               "values": [
                 0.0,
@@ -30,7 +24,7 @@
                 128
               ]
             },
-            "learning_rate": {
+            "lr": {
               "values": [
                 0.0001,
                 0.001,
