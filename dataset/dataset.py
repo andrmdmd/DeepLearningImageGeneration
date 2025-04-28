@@ -49,9 +49,9 @@ class SpeechCommandsDataset(Dataset):
     def _init_audio_transforms(self):
         if self.cfg.data.representation == 'spectrogram':
             def spectrogram_transform(waveform):
-                stft = librosa.stft(waveform, n_fft=256, hop_length=202)
+                stft = librosa.stft(waveform, n_fft=self.cfg.data.n_fft // 2, hop_length=self.cfg.data.hop_length)
                 spectrogram = np.abs(stft)
-                spectrogram = spectrogram[:, :80, :]
+                spectrogram = spectrogram[:, :self.cfg.data.n_mels, :]
                 return spectrogram
 
             self.audio_transform = spectrogram_transform
@@ -59,7 +59,7 @@ class SpeechCommandsDataset(Dataset):
         elif self.cfg.data.representation == 'melspectrogram':
             def melspectrogram_transform(waveform):
                 mel_spectrogram = librosa.feature.melspectrogram(
-                    y=waveform.squeeze(),  # Ensure waveform is 1D
+                    y=waveform.squeeze(),
                     sr=self.cfg.data.sample_rate,
                     n_fft=self.cfg.data.n_fft,
                     hop_length=self.cfg.data.hop_length,
