@@ -5,22 +5,21 @@
     "sample_rate": 16000,
     "yes_no_binary": false,
     "unknown_commands_included": false,
-    "target_commands": ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go"],
-    "background_noise": false,
     "n_fft": 512,
     "hop_length": 202,
     "n_mels": 80,
-    "n_mfcc": 40
+    "n_mfcc": 80
   },
   "training": {
-    "batch_size": 32,
+    "engine": "sweep_engine",
+    "batch_size": 64,
     "num_workers": 4,
     "epochs": 50,
     "lr": 0.001,
     "weight_decay": 0.0001
   },
   "log_dir": "logs",
-  "project_dir": "multiclass_test_transformer",
+  "project_dir": "vit_sweep",
   "project_tracker": [
     "wandb"
   ],
@@ -30,5 +29,9 @@
   },
   "model": {
     "architecture": "ViT"
+  },
+  "sweep": {
+    "config": "configuration/10_class_vit_sweep/sweep_config.json",
+    "project_name": "vit_sweep"
   }
 }

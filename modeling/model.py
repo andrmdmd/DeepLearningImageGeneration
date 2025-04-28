@@ -27,7 +27,7 @@ class ClassicModel(nn.Module):
         x = self.fc3(x)
         return x
 
-
+# https://pytorch.org/tutorials/intermediate/speech_command_classification_with_torchaudio_tutorial.html
 class M5(nn.Module):
     def __init__(self, n_input=1, n_output=35, stride=16, n_channel=32):
         super().__init__()

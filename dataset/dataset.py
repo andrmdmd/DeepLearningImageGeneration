@@ -49,22 +49,24 @@ class SpeechCommandsDataset(Dataset):
     def _init_audio_transforms(self):
         if self.cfg.data.representation == 'spectrogram':
             def spectrogram_transform(waveform):
-                stft = librosa.stft(waveform, n_fft=self.cfg.data.n_fft, hop_length=self.cfg.data.hop_length)
-                return np.expand_dims(np.abs(stft), axis=0) 
+                stft = librosa.stft(waveform, n_fft=self.cfg.data.n_fft // 2, hop_length=self.cfg.data.hop_length)
+                spectrogram = np.abs(stft)
+                spectrogram = spectrogram[:, :self.cfg.data.n_mels, :]
+                return spectrogram
 
             self.audio_transform = spectrogram_transform
 
         elif self.cfg.data.representation == 'melspectrogram':
             def melspectrogram_transform(waveform):
                 mel_spectrogram = librosa.feature.melspectrogram(
-                    y=waveform.squeeze(),  # Ensure waveform is 1D
+                    y=waveform.squeeze(),
                     sr=self.cfg.data.sample_rate,
                     n_fft=self.cfg.data.n_fft,
                     hop_length=self.cfg.data.hop_length,
                     n_mels=self.cfg.data.n_mels,
                 )
                 mel_spectrogram_db = librosa.power_to_db(mel_spectrogram, ref=np.max)
-                return np.expand_dims(mel_spectrogram_db, axis=0) 
+                return np.expand_dims(mel_spectrogram_db, axis=0)
 
             self.audio_transform = melspectrogram_transform
 
@@ -179,6 +181,12 @@ class SpeechCommandsDataset(Dataset):
 
     def __len__(self):
         return len(self.filepaths)
+    
+    def get_waveform(self, idx: int):
+        filepath = self.filepaths[idx]
+        waveform = self._load_audio(filepath)
+        label = self.labels[idx]
+        return waveform, label
 
     def __getitem__(self, idx):
         filepath = self.filepaths[idx]
@@ -199,7 +207,6 @@ class SpeechCommandsDataset(Dataset):
             label = 1 if label == 'yes' else 0
         else:
             label = self.label_mapping.get(label, self.label_mapping['_unknown_'] if self.unknown_commands_included else -1)
-
         return data, label
 
 class DynamicUnderSampler(Sampler): 

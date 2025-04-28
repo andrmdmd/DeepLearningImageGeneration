@@ -1,13 +1,9 @@
 {
   "data": {
     "root": "data",
-    "representation": "melspectrogram",
+    "representation": "waveform",
     "sample_rate": 16000,
     "yes_no_binary": true,
-    "target_commands": [
-      "yes",
-      "no"
-    ],
     "n_fft": 512,
     "hop_length": 160,
     "n_mels": 80,
@@ -25,14 +21,14 @@
     "num_workers": 4
   },
   "model": {
-    "architecture": "transformer"
+    "architecture": "M5"
   },
   "sweep": {
     "config": "configuration/binary_test/sweep_config.json",
-    "project_name": "binary_test_transformer"
+    "project_name": "binary_test_m5_fixed"
   },
   "log_dir": "logs",
-  "project_dir": "binary_test_transformer",
+  "project_dir": "binary_test_m5_fixed",
   "project_tracker": [
     "wandb"
   ],
