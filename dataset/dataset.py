@@ -133,10 +133,10 @@ class SpeechCommandsDataset(Dataset):
                                 self.labels.append(label)
         elif self.mode == 'validation':
             self.filepaths = self._load_split_files('validation_list.txt')
-            self.labels = [os.path.relpath(p, self.root_dir).split('/')[0] for p in self.filepaths]
+            self.labels = [os.path.relpath(p, self.root_dir).split(os.path.sep)[0] for p in self.filepaths]
         elif self.mode == 'testing':
             self.filepaths = self._load_split_files('testing_list.txt')
-            self.labels = [os.path.relpath(p, self.root_dir).split('/')[0] for p in self.filepaths]
+            self.labels = [os.path.relpath(p, self.root_dir).split(os.path.sep)[0] for p in self.filepaths]
 
         class_counts = Counter(self.labels)
         print(f"Class balance in {self.mode} data:")
