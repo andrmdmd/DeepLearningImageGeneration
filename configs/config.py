@@ -87,6 +87,7 @@ class Config(JSONPyWizard):
     project_tracker: List[str] = dataclasses.field(default_factory=lambda: ["wandb"])
 
     project_dir: str = "project"
+    project_name: Optional[str] = None
     log_dir: str = "logs"
     mixed_precision: str = "no"
     seed: int = 0
