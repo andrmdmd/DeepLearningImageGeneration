@@ -40,7 +40,7 @@ In this project, we evaluated and compared the performance of three deep learnin
  ├── 📄requirements.txt       # Dependencies
  ├── 📄main.py                # Main training script
  └── 📄sweep.py               # Sweep training script
-
+```
 
 ## ⚙️ Configuration
 
