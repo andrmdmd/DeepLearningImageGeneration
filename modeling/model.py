@@ -27,6 +27,7 @@ class ClassicModel(nn.Module):
         x = self.fc3(x)
         return x
 
+
 # https://pytorch.org/tutorials/intermediate/speech_command_classification_with_torchaudio_tutorial.html
 class M5(nn.Module):
     def __init__(self, n_input=1, n_output=35, stride=16, n_channel=32):
@@ -64,61 +65,6 @@ class M5(nn.Module):
         return x.squeeze(1)
 
 
-class PositionalEncoding(nn.Module):
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
-        super().__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
-        )
-        pe = torch.zeros(max_len, 1, d_model)
-        pe[:, 0, 0::2] = torch.sin(position * div_term)
-        pe[:, 0, 1::2] = torch.cos(position * div_term)
-        self.register_buffer("pe", pe)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.pe[: x.size(0)]
-        return self.dropout(x)
-
-
-class SpeechTransformer(nn.Module):
-    def __init__(self, num_classes, d_model=256, nhead=8, num_layers=6):
-        super().__init__()
-
-        self.embed = nn.Sequential(
-            nn.Linear(101, d_model), nn.GELU(), nn.LayerNorm(d_model), nn.Dropout(0.1)
-        )
-
-        self.pos_encoder = PositionalEncoding(d_model)
-
-        # Transformer with relative positional encoding (Shaw et al., 2018)
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=4 * d_model,
-            dropout=0.1,
-            activation="gelu",
-        )
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-
-        self.pooling = nn.AdaptiveAvgPool1d(1)
-        self.classifier = nn.Sequential(
-            nn.LayerNorm(d_model), nn.Linear(d_model, num_classes)
-        )
-
-    def forward(self, x):
-        # x: [B, T, F]
-        x = self.embed(x)  # -> [B, T, d_model]
-        x = x.transpose(0, 1)  # -> [T, B, d_model]
-        x = self.pos_encoder(x)
-        x = self.encoder(x)
-        x = x.transpose(0, 1).transpose(1, 2)  # -> [B, d_model, T]
-        x = self.pooling(x).squeeze(2)  # -> [B, d_model]
-        return self.classifier(x)
-
-
 # parameters based on best performing setup from Appendix A of https://arxiv.org/abs/2210.07240
 def ViT3M(in_channels: int, num_classes: int) -> nn.Module:
     return timm.models.VisionTransformer(
@@ -131,22 +77,23 @@ def ViT3M(in_channels: int, num_classes: int) -> nn.Module:
         num_heads=12,
         mlp_ratio=2,
     )
-    
+
+
 class ConformerClassifier(nn.Module):
     def __init__(self,
-        input_dim=80,
-        n_heads=4,
-        num_layers=4,
-        num_classes=11,
-        dropout=0.1,
-        ff_expansion=4,
-        conv_kernel_size=31,
-        input_transform=None):
+                 input_dim=80,
+                 n_heads=4,
+                 num_layers=4,
+                 num_classes=11,
+                 dropout=0.1,
+                 ff_expansion=4,
+                 conv_kernel_size=31,
+                 input_transform=None):
         super().__init__()
         self.encoder = Conformer(
             input_dim=input_dim,
             num_heads=n_heads,
-            ffn_dim=ff_expansion*input_dim,
+            ffn_dim=ff_expansion * input_dim,
             num_layers=num_layers,
             depthwise_conv_kernel_size=conv_kernel_size,
             dropout=dropout
@@ -175,7 +122,7 @@ class EnsembleStrategy(nn.Module):
         unknown_output = self.unknown_model(x)
         desired_output = self.desired_model(x)
         return torch.cat(
-            (desired_output * (1.-unknown_output[0]), unknown_output), dim=1
+            (desired_output * (1. - unknown_output[0]), unknown_output), dim=1
         )
 
 
@@ -223,18 +170,14 @@ def _build_model(cfg: Config, num_classes: int) -> nn.Module:
         return M5(n_input=1, n_output=num_classes, stride=16, n_channel=32)
     elif cfg.model.architecture == "ViT":
         return ViT3M(in_channels=1, num_classes=num_classes)
-    elif cfg.model.architecture == "Transformer":
-        return SpeechTransformer(
-            num_classes=num_classes,
-        )
     else:
         raise ValueError(f"Unknown architecture: {cfg.model.architecture}")
 
 
 def build_model(cfg: Config, num_classes: int) -> nn.Module:
     if (
-        cfg.data.unknown_commands_included
-        and cfg.training.sampling_strategy == "ensemble"
+            cfg.data.unknown_commands_included
+            and cfg.training.sampling_strategy == "ensemble"
     ):
         return EnsembleStrategy(
             unknown_model=_build_model(cfg, 1),
