@@ -4,23 +4,24 @@
 
 In this project, we evaluated and compared the performance of three deep learning architectures -- the M5 CNN, Vision Transformer (ViT), and Conformer -- on a multi-class speech command classification task. We investigated the impact of key model hyperparameters, audio input representations, and dataset balancing techniques on classification accuracy. Based on our experimental results, we developed and proposed an ensemble approach combining multiple M5 CNN classifiers to enhance overall performance.
 
+## Adding dataset
+
+1. Download ZIP from https://www.kaggle.com/datasets/borhanitrash/cat-dataset?resource=download
+2. Unpack the ZIP
+3. Rename the `cats` folder to `data`
+4. Rename the `Data` folder to `cats`
+5. Move `data` folder to the root of project directory
+
+Structure change `cats/Data/` > `data/cats/`
+
 ## 📂 Folder Structure
 
 ```plaintext
-📦deep-learning-speech-recognition
+📦deep-learning-image-generation
  ├── 📂configs                # Configuration files for experiments
  │   ├── 📄config_utils.py    # Utils for showing or saving configs
  │   └── 📄config.py          # Main configuration script
  ├── 📂configuration          # Experiment-specific configuration files
- │   ├── 📂10_class_m5_sweep
- │   ├── 📂10_class_vit_repr
- │   ├── 📂10_class_vit_sweep
- │   ├── 📂binary_test
- │   ├── 📂conformer_scratch_size_config
- │   ├── 📂full_dataset_sweep
- │   ├── 📂multiclass_test
- │   ├── 📂run_optimal_configs
- │   ├── 📂sampling_strategy
  │   └── 📂sweep_test
  ├── 📂dataset                # Data loading and preprocessing modules
  │   └── 📄dataset.py         # Data loader and preprocessing scripts
