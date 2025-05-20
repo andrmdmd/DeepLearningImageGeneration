@@ -98,66 +98,22 @@ class DynamicOverSampler(Sampler):
 def get_loader(
         cfg
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
-    train_transform = transforms.Compose(
-        [
-            transforms.Resize((32, 32)),
+   if cfg.training.engine == "dcgan":
+        transform = transforms.Compose([
+            transforms.Resize(64),
+            transforms.CenterCrop(64),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
-    )
-    val_transform = transforms.Compose(
-        [
-            transforms.Resize((32, 32)),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
-    )
-    
-    train_dataset = torchvision.datasets.CIFAR10(
-        root=cfg.data.root, train=True, download=True, transform=train_transform
-    )
-
-    val_dataset = torchvision.datasets.CIFAR10(
-        root=cfg.data.root, train=False, download=True, transform=val_transform
-    )
-    
-    test_dataset = torchvision.datasets.CIFAR10(
-        root=cfg.data.root, train=False, download=True, transform=val_transform 
-    )
-
-    if cfg.training.sampling_strategy == 'undersampling':
-        sampler = DynamicUnderSampler(train_dataset)
-        shuffle = False
-    elif cfg.training.sampling_strategy == 'oversampling':
-        sampler = DynamicOverSampler(train_dataset)
-        shuffle = False
-    else:
-        sampler = None
-        shuffle = True
-
-    train_loader = DataLoader(
-        train_dataset,
-        num_workers=cfg.training.num_workers,
-        batch_size=cfg.training.batch_size,
-        shuffle=shuffle,
-        sampler=sampler,
-        pin_memory=True if torch.cuda.is_available() else False
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        num_workers=cfg.evaluation.num_workers,
-        batch_size=cfg.evaluation.batch_size,
-        shuffle=False,
-        pin_memory=True if torch.cuda.is_available() else False
-    )
-
-    test_loader = DataLoader(
-        test_dataset,
-        num_workers=cfg.evaluation.num_workers,
-        batch_size=cfg.evaluation.batch_size,
-        shuffle=False,
-        pin_memory=True if torch.cuda.is_available() else False
-    )
-
-    return train_loader, val_loader, test_loader
+        ])
+        dataset = torchvision.datasets.ImageFolder(
+            root=cfg.data.root,
+            transform=transform,
+        )
+        train_loader = DataLoader(
+            dataset,
+            batch_size=cfg.training.batch_size,
+            shuffle=True,
+            num_workers=cfg.training.num_workers,
+            pin_memory=True if torch.cuda.is_available() else False,
+        )
+        return train_loader, None, None
