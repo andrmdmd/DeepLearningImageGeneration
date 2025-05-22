@@ -51,9 +51,7 @@ class Engine(BaseEngine):
         """
         checkpoint = self.cfg.model.resume_path
         if not os.path.exists(checkpoint):
-            self.accelerator.print(
-                f"[WARN] Checkpoint {checkpoint} not found. Skipping..."
-            )
+            self.accelerator.print(f"[WARN] Checkpoint {checkpoint} not found. Skipping...")
             return
         self.accelerator.load_state(checkpoint)
 
@@ -74,9 +72,7 @@ class Engine(BaseEngine):
 
     def save_checkpoint(self, save_path: str):
         self.accelerator.save_state(save_path)
-        unwrapped_model = self.accelerator.unwrap_model(
-            self.model, keep_fp32_wrapper=True
-        )
+        unwrapped_model = self.accelerator.unwrap_model(self.model, keep_fp32_wrapper=True)
         torch.save(unwrapped_model.state_dict(), os.path.join(save_path, "model.pth"))
         with open(os.path.join(save_path, "meta_data.json"), "w") as f:
             json.dump(
@@ -88,9 +84,7 @@ class Engine(BaseEngine):
             )
 
     def _train_one_epoch(self):
-        epoch_progress = self.sub_task_progress.add_task(
-            "loader", total=len(self.train_loader)
-        )
+        epoch_progress = self.sub_task_progress.add_task("loader", total=len(self.train_loader))
         self.model.train()
         step_loss = 0
         start = time.time()
@@ -107,9 +101,7 @@ class Engine(BaseEngine):
         all_losses = []
 
         for loader_idx, (img, label) in enumerate(self.train_loader, 1):
-            current_step = (self.current_epoch - 1) * len(
-                self.train_loader
-            ) + loader_idx
+            current_step = (self.current_epoch - 1) * len(self.train_loader) + loader_idx
             self.data_time.update(time.time() - start)
             with self.accelerator.accumulate(self.model):
                 output = self.model(img)
@@ -122,9 +114,7 @@ class Engine(BaseEngine):
                 step_loss += loss.item() / self.cfg.training.accum_iter
                 all_losses.append(loss.item())
 
-                batch_pred, batch_label = self.accelerator.gather_for_metrics(
-                    (output, label)
-                )
+                batch_pred, batch_label = self.accelerator.gather_for_metrics((output, label))
                 all_preds.append(batch_pred)
                 all_labels.append(batch_label)
 
@@ -177,9 +167,7 @@ class Engine(BaseEngine):
         self.sub_task_progress.remove_task(epoch_progress)
 
     def validate(self):
-        valid_progress = self.sub_task_progress.add_task(
-            "validate", total=len(self.val_loader)
-        )
+        valid_progress = self.sub_task_progress.add_task("validate", total=len(self.val_loader))
         all_preds = []
         all_labels = []
         all_losses = []
@@ -191,9 +179,7 @@ class Engine(BaseEngine):
                 loss = F.cross_entropy(pred, label)
                 all_losses.append(loss.item())
 
-                batch_pred, batch_label = self.accelerator.gather_for_metrics(
-                    (pred, label)
-                )
+                batch_pred, batch_label = self.accelerator.gather_for_metrics((pred, label))
                 all_preds.append(batch_pred)
                 all_labels.append(batch_label)
 
@@ -204,10 +190,7 @@ class Engine(BaseEngine):
 
         metric_results = self.metrics.compute(all_preds, all_labels, all_losses)
 
-        if (
-            self.accelerator.is_main_process
-            and metric_results["accuracy"] > self.max_acc
-        ):
+        if self.accelerator.is_main_process and metric_results["accuracy"] > self.max_acc:
             save_path = os.path.join(self.base_dir, "checkpoint")
             self.accelerator.print(
                 f"new best found with: {metric_results['accuracy']:.3f}, save to {save_path}"
@@ -218,12 +201,8 @@ class Engine(BaseEngine):
 
             # Save best model
             self.accelerator.save_state(self.base_dir)
-            unwrapped_model = self.accelerator.unwrap_model(
-                self.model, keep_fp32_wrapper=True
-            )
-            torch.save(
-                unwrapped_model.state_dict(), os.path.join(self.base_dir, "best.pth")
-            )
+            unwrapped_model = self.accelerator.unwrap_model(self.model, keep_fp32_wrapper=True)
+            torch.save(unwrapped_model.state_dict(), os.path.join(self.base_dir, "best.pth"))
         else:
             self.early_stopping_counter += 1  # Increment counter if no improvement
 
@@ -253,9 +232,7 @@ class Engine(BaseEngine):
         self.sub_task_progress.remove_task(valid_progress)
 
     def test(self):
-        test_progress = self.sub_task_progress.add_task(
-            "test", total=len(self.test_loader)
-        )
+        test_progress = self.sub_task_progress.add_task("test", total=len(self.test_loader))
         all_preds = []
         all_labels = []
         all_losses = []
@@ -267,9 +244,7 @@ class Engine(BaseEngine):
                 loss = F.cross_entropy(pred, label)
                 all_losses.append(loss.item())
 
-                batch_pred, batch_label = self.accelerator.gather_for_metrics(
-                    (pred, label)
-                )
+                batch_pred, batch_label = self.accelerator.gather_for_metrics((pred, label))
                 all_preds.append(batch_pred)
                 all_labels.append(batch_label)
 
@@ -307,9 +282,7 @@ class Engine(BaseEngine):
         self.loss_fn = build_loss(
             self.cfg,
             (
-                torch.tensor(train_loader.dataset.class_weights).to(
-                    self.accelerator.device
-                )
+                torch.tensor(train_loader.dataset.class_weights).to(self.accelerator.device)
                 if self.cfg.training.sampling_strategy == "weights"
                 else None
             ),

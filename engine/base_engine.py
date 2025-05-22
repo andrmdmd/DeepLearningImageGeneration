@@ -102,9 +102,11 @@ class BaseEngine:
             f" - 🧊 Non-trainable: {non_trainable_params}\n"
             f" - 🤯 Total: {total_params}"
         )
-        self.accelerator.log({
-            "trainable_params": trainable_params,
-        })
+        self.accelerator.log(
+            {
+                "trainable_params": trainable_params,
+            }
+        )
 
     def print_training_details(self):
         try:
@@ -143,13 +145,15 @@ class BaseEngine:
             self.accelerator.log(metrics, step=step)
         else:
             self.accelerator.log(metrics)
-        
 
         # Save metrics to CSV
         csv_path = os.path.join(self.base_dir, csv_name)
         file_exists = os.path.exists(csv_path)
         with open(csv_path, mode="a", newline="") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=["step"] + list(metrics.keys()) if step else list(metrics.keys()))
+            writer = csv.DictWriter(
+                csv_file,
+                fieldnames=["step"] + list(metrics.keys()) if step else list(metrics.keys()),
+            )
             if not file_exists:
                 writer.writeheader()  # Write header if file doesn't exist
             writer.writerow({"step": step, **metrics} if step else metrics)

@@ -18,6 +18,7 @@ import os
 from PIL import Image
 import wandb  # Ensure wandb is installed and imported
 
+
 class UNet2DEngine(BaseEngine):
     def __init__(self, accelerator: accelerate.Accelerator, cfg: Config):
         super().__init__(accelerator, cfg)
@@ -76,9 +77,7 @@ class UNet2DEngine(BaseEngine):
             wandb.log({"Generated Images": wandb.Image(image_grid)}, step=epoch)
 
     def _train_one_epoch(self):
-        epoch_progress = self.sub_task_progress.add_task(
-            "loader", total=len(self.train_loader)
-        )
+        epoch_progress = self.sub_task_progress.add_task("loader", total=len(self.train_loader))
         self.model.train()
         step_loss = 0
 
@@ -86,7 +85,10 @@ class UNet2DEngine(BaseEngine):
             images = batch[0]
             noise = torch.randn_like(images).to(self.accelerator.device)
             timesteps = torch.randint(
-                0, self.noise_scheduler.num_train_timesteps, (images.shape[0],), device=self.accelerator.device
+                0,
+                self.noise_scheduler.num_train_timesteps,
+                (images.shape[0],),
+                device=self.accelerator.device,
             ).long()
 
             noisy_images = self.noise_scheduler.add_noise(images, noise, timesteps)
@@ -116,8 +118,13 @@ class UNet2DEngine(BaseEngine):
 
         # Sample demo images after each epoch
         if self.accelerator.is_main_process:
-            pipeline = DDPMPipeline(unet=self.accelerator.unwrap_model(self.model), scheduler=self.noise_scheduler)
-            if (self.current_epoch + 1) % self.cfg.training.save_image_epochs == 0 or self.current_epoch == self.cfg.training.epochs:
+            pipeline = DDPMPipeline(
+                unet=self.accelerator.unwrap_model(self.model), scheduler=self.noise_scheduler
+            )
+            if (
+                (self.current_epoch + 1) % self.cfg.training.save_image_epochs == 0
+                or self.current_epoch == self.cfg.training.epochs
+            ):
                 self.evaluate(self.current_epoch, pipeline)
             if self.current_epoch == self.cfg.training.epochs:
                 save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{self.current_epoch}")

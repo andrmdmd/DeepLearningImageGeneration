@@ -29,11 +29,13 @@ class EvalConfig:
     num_workers: int = 4
     batch_size: int = 32
 
+
 @dataclasses.dataclass
 class DataConfig:
     root: str = "data"
     in_channels: int = 3
     image_size: int = 64
+
 
 @dataclasses.dataclass
 class SweepConfig:
@@ -41,16 +43,19 @@ class SweepConfig:
     config: str = ""
     project_name: str = ""
 
+
 @dataclasses.dataclass
 class WandbConfig:
     name: str = None
     tags: list[str] = dataclasses.field(default_factory=list)
+
 
 @dataclasses.dataclass
 class ModelConfig:
     base_dim: int = 64
     out_channels: int = 3
     resume_path: Optional[str] = None
+
 
 @dataclasses.dataclass
 class Config(JSONPyWizard):
