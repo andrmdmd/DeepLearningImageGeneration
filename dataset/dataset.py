@@ -101,7 +101,7 @@ class DynamicOverSampler(Sampler):
 
 
 def get_loader(cfg) -> Tuple[DataLoader, DataLoader, DataLoader]:
-    if cfg.training.engine == "dcgan":
+    if cfg.training.engine == "dcgan_engine":
         transform = transforms.Compose(
             [
                 transforms.Resize(cfg.data.image_size),

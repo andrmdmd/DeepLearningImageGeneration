@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from dataclass_wizard import JSONPyWizard
 import dataclasses
 from typing import List, Literal, Optional
 from dataclass_wizard import JSONPyWizard
