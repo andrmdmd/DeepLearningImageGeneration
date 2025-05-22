@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from diffusers.models import UNet2DModel
 
 from configs import Config
 
@@ -47,6 +48,7 @@ class DCGANGenerator(nn.Module):
     def forward(self, input):
         return self.main(input)
 
+
 class DCGANDiscriminator(nn.Module):
     def __init__(self, nc=3, ndf=64):
         super().__init__()
@@ -69,13 +71,51 @@ class DCGANDiscriminator(nn.Module):
     def forward(self, input):
         return self.main(input)
 
+
 def build_model(cfg: Config) -> ClassicModel:
-    return ClassicModel(cfg.model.in_channels, cfg.model.base_dim, cfg.model.num_classes)
+    return ClassicModel(
+        cfg.model.in_channels, cfg.model.base_dim, cfg.model.num_classes
+    )
+
 
 def build_generator(cfg: Config):
     # todo: consider fields from config
     return DCGANGenerator()
 
+
 def build_discriminator(cfg: Config):
     # todo: consider fields from config
     return DCGANDiscriminator()
+
+
+def build_unet2d_model(cfg: Config) -> UNet2DModel:
+    return UNet2DModel(
+        sample_size=cfg.data.image_size,
+        in_channels=cfg.data.in_channels,
+        out_channels=cfg.model.out_channels,
+        layers_per_block=2,
+        block_out_channels=(
+            cfg.model.base_dim,
+            cfg.model.base_dim,
+            cfg.model.base_dim * 2,
+            cfg.model.base_dim * 2,
+            cfg.model.base_dim * 4,
+            cfg.model.base_dim * 4,
+        ),
+        down_block_types=(
+            "DownBlock2D",  # a regular ResNet downsampling block
+            "DownBlock2D",
+            "DownBlock2D",
+            "DownBlock2D",
+            "AttnDownBlock2D",  # a ResNet downsampling block with spatial self-attention
+            "DownBlock2D",
+        ),
+        up_block_types=(
+            "UpBlock2D",  # a regular ResNet upsampling block
+            "AttnUpBlock2D",  # a ResNet upsampling block with spatial self-attention
+            "UpBlock2D",
+            "UpBlock2D",
+            "UpBlock2D",
+            "UpBlock2D",
+        ),
+    )
