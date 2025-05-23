@@ -208,7 +208,7 @@ class ImageGenerationEngine(BaseEngine):
         if self.accelerator.is_main_process:
             clip_mmd_score = self.clip_mmd.compute_mmd(images)
             self.log_results(
-                {"CLIP-MMD": clip_mmd_score},
+                {"val/cmmd": clip_mmd_score},
                 step=(epoch) * len(self.train_loader),
                 csv_name="cmmd.csv",
             )
