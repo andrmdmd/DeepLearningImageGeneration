@@ -34,7 +34,7 @@ def main():
     )
 
     accelerate.utils.set_seed(cfg.seed, device_specific=True)
-    engine = build_engine(cfg.training.engine)(accelerator, cfg)
+    engine = build_engine(cfg.training.engine, is_sweep=False)(accelerator, cfg)
     engine.train()
     engine.close()
 

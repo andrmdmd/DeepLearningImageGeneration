@@ -104,24 +104,12 @@ def get_loader(cfg) -> Tuple[DataLoader, DataLoader, DataLoader]:
     if cfg.training.engine == "dcgan":
         transform = transforms.Compose(
             [
-                transforms.Resize(64),
-                transforms.CenterCrop(64),
+                transforms.Resize(cfg.data.image_size),
+                transforms.CenterCrop(cfg.data.image_size),
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ]
         )
-        dataset = torchvision.datasets.ImageFolder(
-            root=cfg.data.root,
-            transform=transform,
-        )
-        train_loader = DataLoader(
-            dataset,
-            batch_size=cfg.training.batch_size,
-            shuffle=True,
-            num_workers=cfg.training.num_workers,
-            pin_memory=True if torch.cuda.is_available() else False,
-        )
-        return train_loader, None, None
     elif cfg.training.engine == "unet2d_engine":
         transform = transforms.Compose(
             [
@@ -131,17 +119,19 @@ def get_loader(cfg) -> Tuple[DataLoader, DataLoader, DataLoader]:
                 transforms.Normalize([0.5], [0.5]),
             ]
         )
-        dataset = torchvision.datasets.ImageFolder(
-            root=cfg.data.root,
-            transform=transform,
-        )
-        train_loader = DataLoader(
-            dataset,
-            batch_size=cfg.training.batch_size,
-            shuffle=True,
-            num_workers=cfg.training.num_workers,
-            pin_memory=True if torch.cuda.is_available() else False,
-        )
-        return train_loader, None, None
     else:
         raise ValueError(f"Unknown engine: {cfg.training.engine}")
+    
+    dataset = torchvision.datasets.ImageFolder(
+        root=cfg.data.root,
+        transform=transform,
+    )
+    train_loader = DataLoader(
+        dataset,
+        batch_size=cfg.training.batch_size,
+        shuffle=True,
+        num_workers=cfg.training.num_workers,
+        pin_memory=True if torch.cuda.is_available() else False,
+    )
+    return train_loader, None, None
+

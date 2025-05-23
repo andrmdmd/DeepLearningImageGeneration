@@ -1,35 +1,26 @@
 import os
-import time
-import json
 
-import accelerate
 import torch
+import accelerate
 
 from configs import Config
 from dataset import get_loader
-from engine.base_engine import BaseEngine
-from diffusers import DDPMScheduler
 from modeling import build_unet2d_model
+
+from diffusers import DDPMScheduler, DDPMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
+from engine.base_engine import ImageGenerationEngine
 
-from diffusers import DDPMPipeline
-from torchvision.utils import save_image
-import os
-from PIL import Image
-import wandb  # Ensure wandb is installed and imported
-
-
-class UNet2DEngine(BaseEngine):
+class UNet2DEngine(ImageGenerationEngine):
     def __init__(self, accelerator: accelerate.Accelerator, cfg: Config):
         super().__init__(accelerator, cfg)
 
         self.min_loss = float("inf")
         self.current_epoch = 1
-        self.early_stopping_patience = self.cfg.training.early_stopping_patience
-        self.early_stopping_counter = 0
-        self.stop_training = False
 
-        self.noise_scheduler = DDPMScheduler(num_train_timesteps=1000)
+        self.noise_scheduler = DDPMScheduler(
+            num_train_timesteps=cfg.training.unet2d.timesteps
+        )
 
         self.accelerator.init_trackers(
             (
@@ -46,40 +37,11 @@ class UNet2DEngine(BaseEngine):
             }
         )
 
-    def make_grid(self, images, rows, cols):
-        """
-        Create a grid of images.
-        """
-        w, h = images[0].size
-        grid = Image.new("RGB", size=(cols * w, rows * h))
-        for i, image in enumerate(images):
-            grid.paste(image, box=(i % cols * w, i // cols * h))
-        return grid
-
-    def evaluate(self, epoch, pipeline):
-        """
-        Generate and save demo images, and upload them to wandb.
-        """
-        generator = torch.manual_seed(self.cfg.seed)
-        images = pipeline(batch_size=16, generator=generator).images
-
-        # Create a grid of images
-        image_grid = self.make_grid(images, rows=4, cols=4)
-
-        # Save the grid locally
-        test_dir = os.path.join(self.base_dir, "checkpoint", "samples")
-        os.makedirs(test_dir, exist_ok=True)
-        grid_path = os.path.join(test_dir, f"{epoch:04d}.png")
-        image_grid.save(grid_path)
-
-        # Upload the grid to wandb
-        if self.accelerator.is_main_process:
-            wandb.log({"Generated Images": wandb.Image(image_grid)}, step=(epoch) * len(self.train_loader))
-
     def _train_one_epoch(self):
-        epoch_progress = self.sub_task_progress.add_task("loader", total=len(self.train_loader))
+        epoch_progress = self.sub_task_progress.add_task(
+            "loader", total=len(self.train_loader)
+        )
         self.model.train()
-        step_loss = 0
 
         for loader_idx, batch in enumerate(self.train_loader, 1):
             images = batch[0]
@@ -101,8 +63,6 @@ class UNet2DEngine(BaseEngine):
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
-                step_loss += loss.item()
-
             # Step the scheduler
             self.scheduler.step()
 
@@ -113,22 +73,17 @@ class UNet2DEngine(BaseEngine):
                     {"loss/train": loss.item()},
                     step=(self.current_epoch - 1) * len(self.train_loader) + loader_idx,
                 )
+                self.min_loss = min(self.min_loss, loss.item())
 
         self.sub_task_progress.remove_task(epoch_progress)
 
         # Sample demo images after each epoch
         if self.accelerator.is_main_process:
             pipeline = DDPMPipeline(
-                unet=self.accelerator.unwrap_model(self.model), scheduler=self.noise_scheduler
+                unet=self.accelerator.unwrap_model(self.model),
+                scheduler=self.noise_scheduler,
             )
-            if (
-                (self.current_epoch + 1) % self.cfg.training.save_image_epochs == 0
-                or self.current_epoch == self.cfg.training.epochs
-            ):
-                self.evaluate(self.current_epoch, pipeline)
-            if self.current_epoch == self.cfg.training.epochs:
-                save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{self.current_epoch}")
-                pipeline.save_pretrained(save_path)
+            self.sample_demo_images(self.current_epoch, pipeline)
 
     def setup_training(self):
         os.makedirs(os.path.join(self.base_dir, "checkpoint"), exist_ok=True)
@@ -143,7 +98,9 @@ class UNet2DEngine(BaseEngine):
         )
 
         num_training_steps = len(train_loader) * self.cfg.training.epochs
-        num_warmup_steps = int(self.cfg.training.warmup_ratio * num_training_steps)
+        num_warmup_steps = int(
+            self.cfg.training.unet2d.warmup_ratio * num_training_steps
+        )
         scheduler = get_cosine_schedule_with_warmup(
             optimizer,
             num_warmup_steps=num_warmup_steps,
@@ -166,7 +123,7 @@ class UNet2DEngine(BaseEngine):
             "Epoch",
             total=self.cfg.training.epochs,
             completed=self.current_epoch - 1,
-            acc=self.min_loss,
+            loss=self.min_loss,
         )
         if self.accelerator.is_main_process:
             self.setup_training()

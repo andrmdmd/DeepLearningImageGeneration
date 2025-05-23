@@ -24,6 +24,9 @@ from rich.progress import (
 
 from configs import Config, show_config
 from utils.meter import AverageMeter
+from utils.clipmmd import CLIPMMD
+from PIL import Image
+import wandb
 
 
 def human_format(num):
@@ -64,7 +67,7 @@ class BaseEngine:
         )
         self.epoch_progress = Progress(
             *self.sub_task_progress.columns,
-            TextColumn("| [bold blue]best acc: {task.fields[acc]:.3f}"),
+            TextColumn("| [bold blue]min loss: {task.fields[loss]:.3f}"),
             transient=True,
             disable=not self.accelerator.is_main_process,
         )
@@ -157,3 +160,81 @@ class BaseEngine:
             if not file_exists:
                 writer.writeheader()  # Write header if file doesn't exist
             writer.writerow({"step": step, **metrics} if step else metrics)
+
+
+class ImageGenerationEngine(BaseEngine):
+    def __init__(self, accelerator: accelerate.Accelerator, cfg: Config):
+        super().__init__(accelerator, cfg)
+        self.clip_mmd = CLIPMMD(self.accelerator.device, self.cfg.data.root)
+        self.min_cmmd = float("inf")
+        self.early_stopping_patience = self.cfg.training.early_stopping_patience
+        self.early_stopping_counter = 0
+        self.stop_training = False
+
+    def make_grid(self, images, rows, cols):
+        """
+        Create a grid of images.
+        """
+        w, h = images[0].size
+        grid = Image.new("RGB", size=(cols * w, rows * h))
+        for i, image in enumerate(images):
+            grid.paste(image, box=(i % cols * w, i // cols * h))
+        return grid
+
+    def evaluate(self, epoch, pipeline):
+        """
+        Generate and save demo images, upload them to wandb, and evaluate with CLIP-MMD.
+        """
+        generator = torch.manual_seed(self.cfg.seed)
+        images = pipeline(batch_size=self.cfg.training.sample_grid_dimension**2, generator=generator).images
+
+        # Create a grid of images
+        image_grid = self.make_grid(images, rows=self.cfg.training.sample_grid_dimension, cols=self.cfg.training.sample_grid_dimension)
+
+        # Save the grid locally
+        test_dir = os.path.join(self.base_dir, "checkpoint", "samples")
+        os.makedirs(test_dir, exist_ok=True)
+        grid_path = os.path.join(test_dir, f"{epoch:04d}.png")
+        image_grid.save(grid_path)
+
+        # Upload the grid to wandb
+        if self.accelerator.is_main_process:
+            wandb.log(
+                {"Generated Images": wandb.Image(image_grid)},
+                step=(epoch) * len(self.train_loader),
+            )
+
+        # Evaluate with CLIP-MMD
+        if self.accelerator.is_main_process:
+            clip_mmd_score = self.clip_mmd.compute_mmd(images)
+            self.log_results(
+                {"CLIP-MMD": clip_mmd_score},
+                step=(epoch) * len(self.train_loader),
+                csv_name="cmmd.csv",
+            )
+            if clip_mmd_score < self.min_cmmd:
+                self.min_cmmd = clip_mmd_score
+                self.accelerator.print(f"New best CLIP-MMD score: {clip_mmd_score:.4f}")
+                save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
+                pipeline.save_pretrained(save_path)
+                self.early_stopping_counter = 0
+            else:
+                self.early_stopping_counter += 1
+                if self.early_stopping_counter >= self.early_stopping_patience:
+                    self.stop_training = True
+                    self.accelerator.print(
+                        f"Early stopping triggered after {self.early_stopping_patience} epochs without improvement."
+                    )
+
+    def sample_demo_images(self, epoch, pipeline):
+        """
+        Sample demo images after each epoch and save them.
+        """
+        if (
+            (epoch + 1) % self.cfg.training.save_image_epochs == 0
+            or epoch == self.cfg.training.epochs
+        ):
+            self.evaluate(epoch, pipeline)
+        if epoch == self.cfg.training.epochs:
+            save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
+            pipeline.save_pretrained(save_path)
