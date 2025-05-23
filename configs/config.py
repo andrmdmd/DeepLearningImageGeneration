@@ -17,7 +17,7 @@ class TrainingConfig:
     label_smoothing: float = 0.0
     batch_size: int = 32
     val_freq: int = 1
-    epochs: int = 50
+    epochs: int = 5
     num_workers: int = 4
     accum_iter: int = 1
     mixed_precision: Literal["no", "fp16", "bf16"] = "fp16"
@@ -27,7 +27,6 @@ class TrainingConfig:
     save_image_epochs: int = 1
     # how many images to sample, dimension of a square grid (e.g. 4 means 4x4=16 images)
     sample_grid_dimension: int = 4
-
 
 
 @dataclasses.dataclass
