@@ -74,7 +74,7 @@ class UNet2DEngine(BaseEngine):
 
         # Upload the grid to wandb
         if self.accelerator.is_main_process:
-            wandb.log({"Generated Images": wandb.Image(image_grid)}, step=epoch)
+            wandb.log({"Generated Images": wandb.Image(image_grid)}, step=(epoch) * len(self.train_loader))
 
     def _train_one_epoch(self):
         epoch_progress = self.sub_task_progress.add_task("loader", total=len(self.train_loader))
