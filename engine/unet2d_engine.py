@@ -66,14 +66,13 @@ class UNet2DEngine(ImageGenerationEngine):
             # Step the scheduler
             self.scheduler.step()
 
-            self.sub_task_progress.update(epoch_progress, advance=1)
-
             if self.accelerator.is_main_process:
                 self.log_results(
                     {"loss/train": loss.item()},
                     step=(self.current_epoch - 1) * len(self.train_loader) + loader_idx,
                 )
                 self.min_loss = min(self.min_loss, loss.item())
+            self.sub_task_progress.update(epoch_progress, advance=1)
 
         self.sub_task_progress.remove_task(epoch_progress)
 
@@ -123,7 +122,7 @@ class UNet2DEngine(ImageGenerationEngine):
             "Epoch",
             total=self.cfg.training.epochs,
             completed=self.current_epoch - 1,
-            loss=self.min_loss,
+            cmmd=self.min_loss,
         )
         if self.accelerator.is_main_process:
             self.setup_training()
@@ -136,7 +135,7 @@ class UNet2DEngine(ImageGenerationEngine):
                 self.accelerator.wait_for_everyone()
             if self.stop_training:
                 break
-            self.epoch_progress.update(train_progress, advance=1, loss=self.min_loss)
+            self.epoch_progress.update(train_progress, advance=1, cmmd=self.min_cmmd)
         self.epoch_progress.stop_task(train_progress)
         self.accelerator.wait_for_everyone()
 

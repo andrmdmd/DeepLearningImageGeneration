@@ -67,7 +67,7 @@ class BaseEngine:
         )
         self.epoch_progress = Progress(
             *self.sub_task_progress.columns,
-            TextColumn("| [bold blue]min loss: {task.fields[loss]:.3f}"),
+            TextColumn("| [bold blue]min cmmd: {task.fields[cmmd]:.3f}"),
             transient=True,
             disable=not self.accelerator.is_main_process,
         )
@@ -165,7 +165,7 @@ class BaseEngine:
 class ImageGenerationEngine(BaseEngine):
     def __init__(self, accelerator: accelerate.Accelerator, cfg: Config):
         super().__init__(accelerator, cfg)
-        self.clip_mmd = CLIPMMD(self.accelerator.device, self.cfg.data.root)
+        self.clip_mmd = CLIPMMD(self.accelerator.device, os.path.join(self.cfg.data.root, "cats"), cfg)
         self.min_cmmd = float("inf")
         self.early_stopping_patience = self.cfg.training.early_stopping_patience
         self.early_stopping_counter = 0
@@ -214,7 +214,7 @@ class ImageGenerationEngine(BaseEngine):
             )
             if clip_mmd_score < self.min_cmmd:
                 self.min_cmmd = clip_mmd_score
-                self.accelerator.print(f"New best CLIP-MMD score: {clip_mmd_score:.4f}")
+                self.accelerator.print(f"New best CLIP-MMD score: {clip_mmd_score:.8f}")
                 save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
                 pipeline.save_pretrained(save_path)
                 self.early_stopping_counter = 0
