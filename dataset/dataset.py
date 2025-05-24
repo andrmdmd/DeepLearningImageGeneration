@@ -10,12 +10,14 @@ import random
 from torch.utils.data import Sampler, WeightedRandomSampler
 from collections import Counter
 
+
 class CustomDataset(Dataset):
     """Please define your own `Dataset` here. We provide an example for CIFAR-10 dataset."""
 
     pass
 
-class DynamicUnderSampler(Sampler): 
+
+class DynamicUnderSampler(Sampler):
     def __init__(self, dataset, num_samples_per_class=None):
         """
         Custom sampler for dynamic undersampling.
@@ -29,7 +31,6 @@ class DynamicUnderSampler(Sampler):
         self.min_count = min(len(indices) for indices in self.class_indices.values())
         if self.num_samples_per_class:
             self.min_count = min(self.min_count, self.num_samples_per_class)
-
 
     def _get_class_indices(self):
         """
@@ -60,6 +61,7 @@ class DynamicUnderSampler(Sampler):
         """
         return self.min_count * len(self.class_indices)
 
+
 class DynamicOverSampler(Sampler):
     def __init__(self, dataset):
         """
@@ -86,7 +88,9 @@ class DynamicOverSampler(Sampler):
         Generate a new set of indices for oversampling at the start of each epoch.
         """
         sample_weights = self._get_sample_weights()
-        sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
+        sampler = WeightedRandomSampler(
+            sample_weights, num_samples=len(sample_weights), replacement=True
+        )
         return iter(sampler)
 
     def __len__(self):
@@ -95,25 +99,39 @@ class DynamicOverSampler(Sampler):
         """
         return len(self.dataset)
 
-def get_loader(
-        cfg
-) -> Tuple[DataLoader, DataLoader, DataLoader]:
-   if cfg.training.engine == "dcgan":
-        transform = transforms.Compose([
-            transforms.Resize(64),
-            transforms.CenterCrop(64),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
-        dataset = torchvision.datasets.ImageFolder(
-            root=cfg.data.root,
-            transform=transform,
+
+def get_loader(cfg) -> Tuple[DataLoader, DataLoader, DataLoader]:
+    if cfg.training.engine == "dcgan":
+        transform = transforms.Compose(
+            [
+                transforms.Resize(cfg.data.image_size),
+                transforms.CenterCrop(cfg.data.image_size),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]
         )
-        train_loader = DataLoader(
-            dataset,
-            batch_size=cfg.training.batch_size,
-            shuffle=True,
-            num_workers=cfg.training.num_workers,
-            pin_memory=True if torch.cuda.is_available() else False,
+    elif cfg.training.engine == "unet2d_engine":
+        transform = transforms.Compose(
+            [
+                transforms.Resize(cfg.data.image_size),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
         )
-        return train_loader, None, None
+    else:
+        raise ValueError(f"Unknown engine: {cfg.training.engine}")
+    
+    dataset = torchvision.datasets.ImageFolder(
+        root=cfg.data.root,
+        transform=transform,
+    )
+    train_loader = DataLoader(
+        dataset,
+        batch_size=cfg.training.batch_size,
+        shuffle=True,
+        num_workers=cfg.training.num_workers,
+        pin_memory=True if torch.cuda.is_available() else False,
+    )
+    return train_loader, None, None
+

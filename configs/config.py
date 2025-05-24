@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import dataclasses
 from typing import List, Literal, Optional
+from dataclass_wizard import JSONPyWizard
 
+@dataclasses.dataclass
+class UNet2DTrainingConfig:
+    warmup_ratio = 0.2
+    timesteps: int = 1000
 
 @dataclasses.dataclass
 class TrainingConfig:
-    engine: str = "engine"
+    unet2d: UNet2DTrainingConfig
+    engine: str = "unet2d_engine"
     early_stopping_patience: int = 5
     label_smoothing: float = 0.0
     batch_size: int = 32
@@ -14,11 +20,14 @@ class TrainingConfig:
     epochs: int = 50
     num_workers: int = 4
     accum_iter: int = 1
-    mixed_precision: Literal["no", "fp16", "bf16"] = "no"
+    mixed_precision: Literal["no", "fp16", "bf16"] = "fp16"
     lr: float = 0.0003
-    weight_decay: float = 0.0001
-    sampling_strategy: Literal["undersampling", "oversampling", "ensemble"] | None = None
-    scheduler: Literal["cosine"] | None = "cosine"
+    weight_decay: float = 0.001
+    # after how many epochs to sample some generated images
+    save_image_epochs: int = 1
+    # how many images to sample, dimension of a square grid (e.g. 4 means 4x4=16 images)
+    sample_grid_dimension: int = 4
+
 
 
 @dataclasses.dataclass
@@ -26,9 +35,13 @@ class EvalConfig:
     num_workers: int = 4
     batch_size: int = 32
 
+
 @dataclasses.dataclass
 class DataConfig:
     root: str = "data"
+    in_channels: int = 3
+    image_size: int = 64
+
 
 @dataclasses.dataclass
 class SweepConfig:
@@ -36,16 +49,19 @@ class SweepConfig:
     config: str = ""
     project_name: str = ""
 
+
 @dataclasses.dataclass
 class WandbConfig:
     name: str = None
     tags: list[str] = dataclasses.field(default_factory=list)
 
+
 @dataclasses.dataclass
 class ModelConfig:
-    base_dim: int = 16
+    base_dim: int = 64
+    out_channels: int = 3
     resume_path: Optional[str] = None
-    architecture: Literal["ClassicModel"] = "ClassicModel"
+
 
 @dataclasses.dataclass
 class Config(JSONPyWizard):

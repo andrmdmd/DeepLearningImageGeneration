@@ -13,7 +13,7 @@ class ClassificationLoss(nn.Module):
         return self.criterion(outputs, targets)
 
 
-def build_loss(cfg: Config, weights = None) -> ClassificationLoss:
+def build_loss(cfg: Config, weights=None) -> ClassificationLoss:
     if cfg.training.sampling_strategy == "weights":
         return ClassificationLoss(label_smoothing=cfg.training.label_smoothing, weights=weights)
     return ClassificationLoss(label_smoothing=cfg.training.label_smoothing)

@@ -23,7 +23,7 @@ def sweep(cfg: Config):
     )
 
     accelerate.utils.set_seed(cfg.seed, device_specific=True)
-    engine = build_engine(cfg.training.engine)(accelerator, cfg)
+    engine = build_engine(cfg.training.engine, is_sweep=True)(accelerator, cfg)
     engine.train()
     engine.close()
 
