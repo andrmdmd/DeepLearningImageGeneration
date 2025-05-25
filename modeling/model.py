@@ -73,13 +73,14 @@ class DCGANDiscriminator(nn.Module):
 
 
 def build_model(cfg: Config) -> ClassicModel:
-    return ClassicModel(cfg.model.in_channels, cfg.model.base_dim, cfg.model.num_classes)
+    return ClassicModel(
+        cfg.model.in_channels, cfg.model.base_dim, cfg.model.num_classes
+    )
 
 
 def build_generator(cfg: Config):
     # todo: consider fields from config
-    return DCGANGenerator()
-
+    return DCGANGenerator(nz=cfg.training.dcgan.nz)
 
 def build_discriminator(cfg: Config):
     # todo: consider fields from config

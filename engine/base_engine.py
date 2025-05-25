@@ -181,7 +181,7 @@ class ImageGenerationEngine(BaseEngine):
             grid.paste(image, box=(i % cols * w, i // cols * h))
         return grid
 
-    def evaluate(self, epoch, pipeline):
+    def evaluate(self, epoch, pipeline, step=None):
         """
         Generate and save demo images, upload them to wandb, and evaluate with CLIP-MMD.
         """
@@ -189,19 +189,22 @@ class ImageGenerationEngine(BaseEngine):
         images = pipeline(batch_size=self.cfg.training.sample_grid_dimension**2, generator=generator).images
 
         # Create a grid of images
-        image_grid = self.make_grid(images, rows=self.cfg.training.sample_grid_dimension, cols=self.cfg.training.sample_grid_dimension)
+        make_grid = self.make_grid if not hasattr(pipeline, 'make_grid') else pipeline.make_grid
+        image_grid = make_grid(images, rows=self.cfg.training.sample_grid_dimension, cols=self.cfg.training.sample_grid_dimension)
 
         # Save the grid locally
         test_dir = os.path.join(self.base_dir, "checkpoint", "samples")
         os.makedirs(test_dir, exist_ok=True)
-        grid_path = os.path.join(test_dir, f"{epoch:04d}.png")
+        grid_path = os.path.join(test_dir, f"{epoch:04d}{f'-{step:04d}' if step is not None else ''}.png")
         image_grid.save(grid_path)
+
+        log_step = (step if step is not None else (epoch + 1) * len(self.train_loader))
 
         # Upload the grid to wandb
         if self.accelerator.is_main_process:
             wandb.log(
                 {"Generated Images": wandb.Image(image_grid)},
-                step=(epoch) * len(self.train_loader),
+                step=log_step+1,
             )
 
         # Evaluate with CLIP-MMD
@@ -209,7 +212,7 @@ class ImageGenerationEngine(BaseEngine):
             clip_mmd_score = self.clip_mmd.compute_mmd(images)
             self.log_results(
                 {"val/cmmd": clip_mmd_score},
-                step=(epoch) * len(self.train_loader),
+                step=log_step+1,
                 csv_name="cmmd.csv",
             )
             if clip_mmd_score < self.min_cmmd:
@@ -226,7 +229,7 @@ class ImageGenerationEngine(BaseEngine):
                         f"Early stopping triggered after {self.early_stopping_patience} epochs without improvement."
                     )
 
-    def sample_demo_images(self, epoch, pipeline):
+    def sample_demo_images(self, epoch, pipeline, step=None):
         """
         Sample demo images after each epoch and save them.
         """
@@ -234,7 +237,7 @@ class ImageGenerationEngine(BaseEngine):
             (epoch + 1) % self.cfg.training.save_image_epochs == 0
             or epoch == self.cfg.training.epochs
         ):
-            self.evaluate(epoch, pipeline)
+            self.evaluate(epoch, pipeline, step)
         if epoch == self.cfg.training.epochs:
             save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
             pipeline.save_pretrained(save_path)

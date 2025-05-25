@@ -9,9 +9,17 @@ class UNet2DTrainingConfig:
     warmup_ratio = 0.2
     timesteps: int = 1000
 
+class DCGANTrainingConfig:
+    nz: int = 100  # Size of the latent vector
+    ngf: int = 64  # Number of generator filters in the first layer
+    ndf: int = 64  # Number of discriminator filters in the first layer
+    beta1: float = 0.5 
+    beta2: float = 0.999  
+
 @dataclasses.dataclass
 class TrainingConfig:
     unet2d: UNet2DTrainingConfig
+    dcgan: DCGANTrainingConfig
     engine: str = "unet2d_engine"
     early_stopping_patience: int = 5
     label_smoothing: float = 0.0
