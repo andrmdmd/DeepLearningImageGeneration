@@ -1,0 +1,48 @@
+{
+    "training": {
+        "engine": "dcgan_engine",
+        "early_stopping_patience": 1000,
+        "label_smoothing": 0.0,
+        "batch_size": 128,
+        "val_freq": 1,
+        "epochs": 5,
+        "num_workers": 4,
+        "lr": 0.0002,
+        "accum_iter": 1,
+        "mixed_precision": "fp16",
+        "save_image_epochs": 1,
+        "sample_grid_dimension": 6
+    },
+    "model": {
+        "base_dim": 64,
+        "out_channels": 3,
+        "resume_path": null
+    },
+    "data": {
+        "root": "data",
+        "in_channels": 3,
+        "image_size": 64
+    },
+    "evaluation": {
+        "num_workers": 4,
+        "batch_size": 32
+    },
+    "wandb": {
+        "name": "DCGAN",
+        "tags": ["DCGAN", "sweep"]
+    },
+    "sweep": {
+        "name": "dcgan-sweep",
+        "config": "configuration/dcgan_sweep/sweep_config.json",
+        "project_name": "dcgan-sweeps"
+    },
+    "project_tracker": [
+        "wandb"
+    ],
+    "project_dir": "dcgan_sweep",
+    "project_name": "dcgan",
+    "log_dir": "logs",
+    "mixed_precision": "fp16",
+    "seed": 0,
+    "config": null
+}
