@@ -27,6 +27,7 @@ from utils.meter import AverageMeter
 from utils.clipmmd import CLIPMMD
 from PIL import Image
 import wandb
+from typing import List
 
 
 def human_format(num):
@@ -181,13 +182,10 @@ class ImageGenerationEngine(BaseEngine):
             grid.paste(image, box=(i % cols * w, i // cols * h))
         return grid
 
-    def evaluate(self, epoch, pipeline):
+    def evaluate(self, epoch, images: List[Image.Image], callback=None):
         """
         Generate and save demo images, upload them to wandb, and evaluate with CLIP-MMD.
         """
-        generator = torch.manual_seed(self.cfg.seed)
-        images = pipeline(batch_size=self.cfg.training.sample_grid_dimension**2, generator=generator).images
-
         # Create a grid of images
         image_grid = self.make_grid(images, rows=self.cfg.training.sample_grid_dimension, cols=self.cfg.training.sample_grid_dimension)
 
@@ -204,8 +202,7 @@ class ImageGenerationEngine(BaseEngine):
                 step=(epoch) * len(self.train_loader),
             )
 
-        # Evaluate with CLIP-MMD
-        if self.accelerator.is_main_process:
+            # Evaluate with CLIP-MMD
             clip_mmd_score = self.clip_mmd.compute_mmd(images)
             self.log_results(
                 {"val/cmmd": clip_mmd_score},
@@ -215,8 +212,8 @@ class ImageGenerationEngine(BaseEngine):
             if clip_mmd_score < self.min_cmmd:
                 self.min_cmmd = clip_mmd_score
                 self.accelerator.print(f"New best CLIP-MMD score: {clip_mmd_score:.8f}")
-                save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
-                pipeline.save_pretrained(save_path)
+                if callback:
+                    callback(epoch)
                 self.early_stopping_counter = 0
             else:
                 self.early_stopping_counter += 1
@@ -225,16 +222,3 @@ class ImageGenerationEngine(BaseEngine):
                     self.accelerator.print(
                         f"Early stopping triggered after {self.early_stopping_patience} epochs without improvement."
                     )
-
-    def sample_demo_images(self, epoch, pipeline):
-        """
-        Sample demo images after each epoch and save them.
-        """
-        if (
-            (epoch + 1) % self.cfg.training.save_image_epochs == 0
-            or epoch == self.cfg.training.epochs
-        ):
-            self.evaluate(epoch, pipeline)
-        if epoch == self.cfg.training.epochs:
-            save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
-            pipeline.save_pretrained(save_path)
