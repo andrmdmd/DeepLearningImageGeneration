@@ -10,7 +10,7 @@ def build_engine(engine_name: str, is_sweep: bool = False):
     elif engine_name == "unet2d_engine":
         engine_class =  UNet2DEngine
     elif engine_name == "dcgan_engine":
-        return DCGANEngine
+        engine_class = DCGANEngine
     else:
         raise ValueError(f"Unknown engine: {engine_name}")
     

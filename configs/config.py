@@ -9,6 +9,7 @@ class UNet2DTrainingConfig:
     warmup_ratio = 0.2
     timesteps: int = 1000
 
+@dataclasses.dataclass
 class DCGANTrainingConfig:
     nz: int = 100  # Size of the latent vector
     ngf: int = 64  # Number of generator filters in the first layer

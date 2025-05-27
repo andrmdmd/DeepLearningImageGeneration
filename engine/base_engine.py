@@ -185,7 +185,7 @@ class ImageGenerationEngine(BaseEngine):
         """
         Generate and save demo images, upload them to wandb, and evaluate with CLIP-MMD.
         """
-        generator = torch.manual_seed(self.cfg.seed)
+        generator = torch.Generator(device=self.device)
         images = pipeline(batch_size=self.cfg.training.sample_grid_dimension**2, generator=generator).images
 
         # Create a grid of images

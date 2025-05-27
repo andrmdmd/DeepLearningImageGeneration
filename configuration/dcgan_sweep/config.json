@@ -3,15 +3,14 @@
         "engine": "dcgan_engine",
         "early_stopping_patience": 1000,
         "label_smoothing": 0.0,
-        "batch_size": 128,
         "val_freq": 1,
-        "epochs": 5,
+        "epochs": 15,
         "num_workers": 4,
-        "lr": 0.0002,
         "accum_iter": 1,
         "mixed_precision": "fp16",
         "save_image_epochs": 1,
-        "sample_grid_dimension": 6
+        "sample_grid_dimension": 6,
+        "weight_decay": 0
     },
     "model": {
         "base_dim": 64,
@@ -29,7 +28,10 @@
     },
     "wandb": {
         "name": "DCGAN",
-        "tags": ["DCGAN", "sweep"]
+        "tags": [
+            "DCGAN",
+            "sweep"
+        ]
     },
     "sweep": {
         "name": "dcgan-sweep",
@@ -43,6 +45,6 @@
     "project_name": "dcgan",
     "log_dir": "logs",
     "mixed_precision": "fp16",
-    "seed": 0,
+    "seed": 10,
     "config": null
 }

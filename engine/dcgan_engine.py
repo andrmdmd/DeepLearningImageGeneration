@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from engine.base_engine import ImageGenerationEngine
-from modeling.model import DCGANGenerator, DCGANDiscriminator
+from modeling.model import DCGANGenerator, DCGANDiscriminator, build_discriminator, build_generator
 from dataset import get_loader
 from torchvision.utils import save_image
 from torchvision.transforms import transforms
@@ -38,8 +38,8 @@ class DCGANEngine(ImageGenerationEngine):
     def setup_training(self):
         os.makedirs(os.path.join(self.base_dir, "checkpoint"), exist_ok=True)
 
-        self.netG = DCGANGenerator().to(self.device)
-        self.netD = DCGANDiscriminator().to(self.device)
+        self.netG = build_generator(self.cfg).to(self.device)
+        self.netD = build_discriminator(self.cfg).to(self.device)
 
         self.criterion = nn.BCELoss()
         self.optimizerD = optim.Adam(
@@ -124,11 +124,7 @@ class DCGANEngine(ImageGenerationEngine):
                     },
                     step=current_step,
                 )
-            if self.accelerator.is_main_process and loader_idx % 100 == 0:
-                self.sample_demo_images(
-                    self.current_epoch, self.build_pipeline(), current_step
-                )
-            self.sub_task_progress.update(epoch_progress, advance=1)
+        self.sub_task_progress.update(epoch_progress, advance=1)
 
         if self.accelerator.is_main_process:
             self.sample_demo_images(self.current_epoch, self.build_pipeline())
@@ -141,7 +137,7 @@ class DCGANEngine(ImageGenerationEngine):
                 self.cfg = cfg
 
             def __call__(self, batch_size, generator):
-                self.generator.eval()
+                self.generator.eval().to(self.device)
                 with torch.no_grad():
                     noise = torch.randn(
                         batch_size,
