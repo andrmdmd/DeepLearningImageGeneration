@@ -5,7 +5,12 @@ import torch.nn as nn
 import torch.optim as optim
 
 from engine.base_engine import ImageGenerationEngine
-from modeling.model import DCGANGenerator, DCGANDiscriminator, build_discriminator, build_generator
+from modeling.model import (
+    DCGANGenerator,
+    DCGANDiscriminator,
+    build_discriminator,
+    build_generator,
+)
 from dataset import get_loader
 from torchvision.utils import save_image
 from torchvision.transforms import transforms
@@ -127,27 +132,35 @@ class DCGANEngine(ImageGenerationEngine):
         self.sub_task_progress.update(epoch_progress, advance=1)
 
         if self.accelerator.is_main_process:
-            self.sample_demo_images(self.current_epoch, self.build_pipeline())
+            self.sample_demo_images(self.current_epoch)
 
-    def build_pipeline(self):
-        class Pipeline:
-            def __init__(self, generator, device, cfg):
-                self.generator = generator
-                self.device = device
-                self.cfg = cfg
+    def sample_demo_images(self, epoch):
 
-            def __call__(self, batch_size, generator):
-                self.generator.eval().to(self.device)
+        def save(epoch):
+            save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
+            self.save_model(os.path.join(save_path, "best_generator.pth"))
+
+        if (
+            (epoch + 1) % self.cfg.training.save_image_epochs == 0
+            or epoch == self.cfg.training.epochs
+        ):
+            generator = torch.Generator(device=self.device)
+            # Generate images using the pipeline in batches
+            images_count = self.cfg.training.sample_grid_dimension**2
+            all_images = []
+            self.netG.eval().to(self.device)
+
+            for i in range(0, images_count, self.cfg.training.batch_size):
                 with torch.no_grad():
                     noise = torch.randn(
-                        batch_size,
+                        min(self.cfg.training.batch_size, images_count),
                         self.cfg.training.dcgan.nz,
                         1,
                         1,
                         device=self.device,
                         generator=generator,
                     )
-                    generated_images = self.generator(noise)
+                    generated_images = self.netG(noise)
 
                     low = float(generated_images.min())
                     high = float(generated_images.max())
@@ -164,16 +177,15 @@ class DCGANEngine(ImageGenerationEngine):
                         .to(torch.uint8)
                         .to("cpu")
                     )
-                    self.images = [
+                    batch_images = [
                         Image.fromarray(arr[i].numpy()) for i in range(arr.size(0))
                     ]
-                return self
+                    print(len(batch_images), "images generated in this batch.")
+                all_images.append(batch_images)
 
-            def save_pretrained(self, _):
-                # todo save the model
-                pass
-
-        return Pipeline(self.netG, self.device, self.cfg)
+            all_images = [img for batch in all_images for img in batch]
+            print(len(all_images), "images generated.")
+            self.evaluate(epoch, all_images, save)
 
     def weights_init(self, m):
         classname = m.__class__.__name__
