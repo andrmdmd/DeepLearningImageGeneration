@@ -137,15 +137,15 @@ class DCGANEngine(ImageGenerationEngine):
     def sample_demo_images(self, epoch):
 
         def save(epoch):
-            save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
-            self.save_model(os.path.join(save_path, "best_generator.pth"))
+            # save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
+            # self.save_model(os.path.join(save_path, "best_generator.pth"))
+            pass
 
         if (
             (epoch + 1) % self.cfg.training.save_image_epochs == 0
             or epoch == self.cfg.training.epochs
         ):
             generator = torch.Generator(device=self.device)
-            # Generate images using the pipeline in batches
             images_count = self.cfg.training.sample_grid_dimension**2
             all_images = []
             self.netG.eval().to(self.device)
@@ -153,7 +153,7 @@ class DCGANEngine(ImageGenerationEngine):
             for i in range(0, images_count, self.cfg.training.batch_size):
                 with torch.no_grad():
                     noise = torch.randn(
-                        min(self.cfg.training.batch_size, images_count),
+                        min(self.cfg.training.batch_size, images_count-i),
                         self.cfg.training.dcgan.nz,
                         1,
                         1,
@@ -197,6 +197,8 @@ class DCGANEngine(ImageGenerationEngine):
 
     def save_model(self, best_model_path):
         if self.accelerator.is_main_process:
+            os.makedirs(os.path.dirname(best_model_path), exist_ok=True)
+            self.accelerator.print(f"Saving best model to {best_model_path}")
             torch.save(self.netG.state_dict(), best_model_path)
 
     def train(self):

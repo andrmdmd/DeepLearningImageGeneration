@@ -79,12 +79,10 @@ def build_model(cfg: Config) -> ClassicModel:
 
 
 def build_generator(cfg: Config):
-    # todo: consider fields from config
-    return DCGANGenerator(nz=cfg.training.dcgan.nz)
+    return DCGANGenerator(nz=cfg.training.dcgan.nz, ngf=cfg.training.dcgan.ngf, nc=cfg.data.in_channels)
 
 def build_discriminator(cfg: Config):
-    # todo: consider fields from config
-    return DCGANDiscriminator()
+    return DCGANDiscriminator(nc=cfg.data.in_channels, ndf=cfg.training.dcgan.ndf)
 
 
 def build_unet2d_model(cfg: Config) -> UNet2DModel:
