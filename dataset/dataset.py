@@ -116,7 +116,7 @@ def get_loader(cfg) -> Tuple[DataLoader, DataLoader, DataLoader]:
                 transforms.Resize(cfg.data.image_size),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
+                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]
         )
     else:

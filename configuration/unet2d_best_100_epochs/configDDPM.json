@@ -1,14 +1,19 @@
 {
     "training": {
         "unet2d": {
-            "inference_timesteps": 1000
+            "warmup_ratio": 0.2,
+            "train_timesteps": 1000,
+            "inference_timesteps": 1000,
+            "noise_scheduler": "ddpm"
         },
         "engine": "unet2d_engine",
+        "weight_decay": 0.0001,
+        "lr": 0.001,
         "early_stopping_patience": 5,
         "label_smoothing": 0.0,
         "batch_size": 32,
         "val_freq": 1,
-        "epochs": 5,
+        "epochs": 100,
         "num_workers": 4,
         "accum_iter": 1,
         "mixed_precision": "fp16",
@@ -31,17 +36,12 @@
     },
     "wandb": {
         "name": "UNet2D",
-        "tags": ["UNet2D", "sweep"]
-    },
-    "sweep": {
-        "name": "UNet2D-sweep",
-        "config": "configuration/unet2d_sweep/sweep_config.json",
-        "project_name": "sweeps"
+        "tags": ["UNet2D", "100_epochs"]
     },
     "project_tracker": [
         "wandb"
     ],
-    "project_dir": "unet2d_sweep",
+    "project_dir": "unet2d_long_runs",
     "project_name": "unet2d",
     "log_dir": "logs",
     "mixed_precision": "fp16",

@@ -7,9 +7,11 @@ from configs import Config
 from dataset import get_loader
 from modeling import build_unet2d_model
 
-from diffusers import DDPMScheduler, DDPMPipeline
+from diffusers import DDPMScheduler, DDPMPipeline, DDIMScheduler, DDIMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from engine.base_engine import ImageGenerationEngine
+from PIL import Image
+
 
 class UNet2DEngine(ImageGenerationEngine):
     def __init__(self, accelerator: accelerate.Accelerator, cfg: Config):
@@ -18,9 +20,15 @@ class UNet2DEngine(ImageGenerationEngine):
         self.min_loss = float("inf")
         self.current_epoch = 1
 
-        self.noise_scheduler = DDPMScheduler(
-            num_train_timesteps=cfg.training.unet2d.timesteps
-        )
+        # based on config value set noise scheduler as DDPM or DDIM
+        config = {
+            "num_train_timesteps": cfg.training.unet2d.train_timesteps,
+        }
+        if cfg.training.unet2d.noise_scheduler == "ddim":
+            self.noise_scheduler = DDIMScheduler.from_config(config)
+        else:
+            # default to DDPM
+            self.noise_scheduler = DDPMScheduler.from_config(config)
 
         self.accelerator.init_trackers(
             (
@@ -36,6 +44,39 @@ class UNet2DEngine(ImageGenerationEngine):
                 "base_dir": self.base_dir,
             }
         )
+
+    def _sample_demo_images(self, epoch, pipeline: DDIMPipeline | DDPMPipeline):
+        """
+        Sample demo images after each epoch and save them.
+        """
+
+        def save_pipeline(epoch):
+            save_path = os.path.join(self.base_dir, "checkpoint", f"epoch_{epoch}")
+            pipeline.save_pretrained(save_path)
+
+        if (
+            (epoch + 1) % self.cfg.training.save_image_epochs == 0
+            or epoch == self.cfg.training.epochs
+        ):
+            generator = torch.manual_seed(self.cfg.seed)
+            # Generate images using the pipeline in batches
+            images_count = self.cfg.training.sample_grid_dimension**2
+            all_images = []
+
+            for i in range(0, images_count, self.cfg.training.batch_size):
+                batch_images = pipeline(
+                    batch_size=self.cfg.training.batch_size,
+                    generator=generator,
+                    num_inference_steps=self.cfg.training.unet2d.inference_timesteps,
+                ).images
+                all_images.append(batch_images)
+
+            all_images = [
+                img for batch in all_images for img in batch
+            ]
+            self.evaluate(epoch, all_images, save_pipeline)
+        if epoch == self.cfg.training.epochs:
+            save_pipeline(epoch)
 
     def _train_one_epoch(self):
         epoch_progress = self.sub_task_progress.add_task(
@@ -78,11 +119,18 @@ class UNet2DEngine(ImageGenerationEngine):
 
         # Sample demo images after each epoch
         if self.accelerator.is_main_process:
-            pipeline = DDPMPipeline(
-                unet=self.accelerator.unwrap_model(self.model),
-                scheduler=self.noise_scheduler,
-            )
-            self.sample_demo_images(self.current_epoch, pipeline)
+            if self.cfg.training.unet2d.noise_scheduler == "ddim":
+                pipeline = DDIMPipeline(
+                    unet=self.accelerator.unwrap_model(self.model),
+                    scheduler=self.noise_scheduler,
+                )
+            else:
+                pipeline = DDPMPipeline(
+                    unet=self.accelerator.unwrap_model(self.model),
+                    scheduler=self.noise_scheduler,
+                )
+
+            self._sample_demo_images(self.current_epoch, pipeline)
 
     def setup_training(self):
         os.makedirs(os.path.join(self.base_dir, "checkpoint"), exist_ok=True)

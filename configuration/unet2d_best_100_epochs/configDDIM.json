@@ -1,22 +1,27 @@
 {
     "training": {
         "unet2d": {
-            "inference_timesteps": 1000
+            "warmup_ratio": 0.05,
+            "train_timesteps": 1000,
+            "inference_timesteps": 50,
+            "noise_scheduler": "ddim"
         },
         "engine": "unet2d_engine",
-        "early_stopping_patience": 5,
+        "weight_decay": 0.0001,
+        "lr": 0.0003,
+        "early_stopping_patience": 100,
         "label_smoothing": 0.0,
-        "batch_size": 32,
+        "batch_size": 8,
         "val_freq": 1,
-        "epochs": 5,
+        "epochs": 100,
         "num_workers": 4,
         "accum_iter": 1,
         "mixed_precision": "fp16",
         "save_image_epochs": 1,
-        "sample_grid_dimension": 4
+        "sample_grid_dimension": 16
     },
     "model": {
-        "base_dim": 64,
+        "base_dim": 128,
         "out_channels": 3,
         "resume_path": null
     },
@@ -31,17 +36,12 @@
     },
     "wandb": {
         "name": "UNet2D",
-        "tags": ["UNet2D", "sweep"]
-    },
-    "sweep": {
-        "name": "UNet2D-sweep",
-        "config": "configuration/unet2d_sweep/sweep_config.json",
-        "project_name": "sweeps"
+        "tags": ["UNet2D", "100_epochs"]
     },
     "project_tracker": [
         "wandb"
     ],
-    "project_dir": "unet2d_sweep",
+    "project_dir": "unet2d_long_runs",
     "project_name": "unet2d",
     "log_dir": "logs",
     "mixed_precision": "fp16",
