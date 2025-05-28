@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from dataclass_wizard import JSONPyWizard
 import dataclasses
 from typing import List, Literal, Optional
 from dataclass_wizard import JSONPyWizard
@@ -12,14 +12,23 @@ class UNet2DTrainingConfig:
     noise_scheduler: Literal["ddpm", "ddim"] = "ddpm"
 
 @dataclasses.dataclass
+class DCGANTrainingConfig:
+    nz: int = 100  # Size of the latent vector
+    ngf: int = 64  # Number of generator filters in the first layer
+    ndf: int = 64  # Number of discriminator filters in the first layer
+    beta1: float = 0.5 
+    beta2: float = 0.999  
+
+@dataclasses.dataclass
 class TrainingConfig:
     unet2d: UNet2DTrainingConfig
+    dcgan: DCGANTrainingConfig
     engine: str = "unet2d_engine"
     early_stopping_patience: int = 5
     label_smoothing: float = 0.0
     batch_size: int = 32
     val_freq: int = 1
-    epochs: int = 50
+    epochs: int = 5
     num_workers: int = 4
     accum_iter: int = 1
     mixed_precision: Literal["no", "fp16", "bf16"] = "fp16"
@@ -29,7 +38,6 @@ class TrainingConfig:
     save_image_epochs: int = 1
     # how many images to sample, dimension of a square grid (e.g. 4 means 4x4=16 images)
     sample_grid_dimension: int = 4
-
 
 
 @dataclasses.dataclass

@@ -40,11 +40,16 @@ def human_format(num):
 
 class BaseEngine:
     def __init__(
-        self, accelerator: accelerate.Accelerator, cfg: Config, is_training_engine: bool = True
+        self,
+        accelerator: accelerate.Accelerator,
+        cfg: Config,
+        is_training_engine: bool = True,
     ):
         # Setup accelerator for distributed training (or single GPU) automatically
         run_number = 1
-        while os.path.exists(os.path.join(cfg.log_dir, cfg.project_dir, f"run_{run_number}")):
+        while os.path.exists(
+            os.path.join(cfg.log_dir, cfg.project_dir, f"run_{run_number}")
+        ):
             run_number += 1
         self.base_dir = os.path.join(cfg.log_dir, cfg.project_dir, f"run_{run_number}")
         self.accelerator = accelerator
@@ -95,7 +100,9 @@ class BaseEngine:
         )
 
     def print_model_details(self):
-        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        trainable_params = sum(
+            p.numel() for p in self.model.parameters() if p.requires_grad
+        )
         non_trainable_params = sum(
             p.numel() for p in self.model.parameters() if not p.requires_grad
         )
@@ -135,7 +142,9 @@ class BaseEngine:
         self.live_process.stop()
         self.accelerator.end_training()
 
-    def log_results(self, metrics: dict, step: int | None = None, csv_name: str = "metrics.csv"):
+    def log_results(
+        self, metrics: dict, step: int | None = None, csv_name: str = "metrics.csv"
+    ):
         """
         Logs metrics and saves them to a CSV file.
 
@@ -156,7 +165,9 @@ class BaseEngine:
         with open(csv_path, mode="a", newline="") as csv_file:
             writer = csv.DictWriter(
                 csv_file,
-                fieldnames=["step"] + list(metrics.keys()) if step else list(metrics.keys()),
+                fieldnames=(
+                    ["step"] + list(metrics.keys()) if step else list(metrics.keys())
+                ),
             )
             if not file_exists:
                 writer.writeheader()  # Write header if file doesn't exist
@@ -166,7 +177,9 @@ class BaseEngine:
 class ImageGenerationEngine(BaseEngine):
     def __init__(self, accelerator: accelerate.Accelerator, cfg: Config):
         super().__init__(accelerator, cfg)
-        self.clip_mmd = CLIPMMD(self.accelerator.device, os.path.join(self.cfg.data.root, "cats"), cfg)
+        self.clip_mmd = CLIPMMD(
+            self.accelerator.device, os.path.join(self.cfg.data.root, "cats"), cfg
+        )
         self.min_cmmd = float("inf")
         self.early_stopping_patience = self.cfg.training.early_stopping_patience
         self.early_stopping_counter = 0
@@ -182,31 +195,39 @@ class ImageGenerationEngine(BaseEngine):
             grid.paste(image, box=(i % cols * w, i // cols * h))
         return grid
 
-    def evaluate(self, epoch, images: List[Image.Image], callback=None):
+    def evaluate(self, epoch, images: List[Image.Image], callback=None, step=None):
         """
         Generate and save demo images, upload them to wandb, and evaluate with CLIP-MMD.
         """
         # Create a grid of images
-        image_grid = self.make_grid(images, rows=self.cfg.training.sample_grid_dimension, cols=self.cfg.training.sample_grid_dimension)
+        image_grid = self.make_grid(
+            images,
+            rows=self.cfg.training.sample_grid_dimension,
+            cols=self.cfg.training.sample_grid_dimension,
+        )
 
         # Save the grid locally
         test_dir = os.path.join(self.base_dir, "checkpoint", "samples")
         os.makedirs(test_dir, exist_ok=True)
-        grid_path = os.path.join(test_dir, f"{epoch:04d}.png")
+        grid_path = os.path.join(
+            test_dir, f"{epoch:04d}{f'-{step:04d}' if step is not None else ''}.png"
+        )
         image_grid.save(grid_path)
+
+        log_step = step if step is not None else (epoch + 1) * len(self.train_loader)
 
         # Upload the grid to wandb
         if self.accelerator.is_main_process:
             wandb.log(
                 {"Generated Images": wandb.Image(image_grid)},
-                step=(epoch) * len(self.train_loader),
+                step=log_step + 1,
             )
 
             # Evaluate with CLIP-MMD
             clip_mmd_score = self.clip_mmd.compute_mmd(images)
             self.log_results(
                 {"val/cmmd": clip_mmd_score},
-                step=(epoch) * len(self.train_loader),
+                step=log_step + 1,
                 csv_name="cmmd.csv",
             )
             if clip_mmd_score < self.min_cmmd:
