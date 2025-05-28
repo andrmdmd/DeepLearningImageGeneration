@@ -7,7 +7,9 @@ from dataclass_wizard import JSONPyWizard
 @dataclasses.dataclass
 class UNet2DTrainingConfig:
     warmup_ratio = 0.2
-    timesteps: int = 1000
+    train_timesteps: int = 1000
+    inference_timesteps: int = 1000
+    noise_scheduler: Literal["ddpm", "ddim"] = "ddpm"
 
 @dataclasses.dataclass
 class DCGANTrainingConfig:

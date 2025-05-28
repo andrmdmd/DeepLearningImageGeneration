@@ -17,7 +17,7 @@ class CLIPMMD:
         """
         Load cached reference features if available, otherwise compute and save them in batches.
         """
-        cache_path = os.path.join(self.reference_images_dir, "reference_features.pt")
+        cache_path = os.path.join(self.reference_images_dir, f"reference_features_{self.cfg.training.sample_grid_dimension}.pt")
 
         # Check if cached features exist
         if os.path.exists(cache_path):
@@ -39,11 +39,10 @@ class CLIPMMD:
         if not reference_images:
             raise ValueError(f"No valid images found in directory: {self.reference_images_dir}")
 
-        batch_size = 64  # Adjust batch size based on your GPU memory
         all_features = []
 
-        for i in range(0, len(reference_images), batch_size):
-            batch_images = reference_images[i:i + batch_size]
+        for i in range(0, len(reference_images), self.cfg.training.batch_size):
+            batch_images = reference_images[i:i + self.cfg.training.batch_size]
             inputs = self.clip_processor(images=batch_images, return_tensors="pt", padding=True).to(self.device)
             with torch.no_grad():
                 batch_features = self.clip_model.get_image_features(**inputs)

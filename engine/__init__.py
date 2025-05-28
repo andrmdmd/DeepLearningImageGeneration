@@ -16,3 +16,5 @@ def build_engine(engine_name: str, is_sweep: bool = False):
     
     if is_sweep:
         return lambda accelerator, cfg: SweepEngine(engine_class, accelerator, cfg)
+    else:
+        return lambda accelerator, cfg: engine_class(accelerator, cfg)
