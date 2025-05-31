@@ -1,0 +1,53 @@
+{
+    "training": {
+        "engine": "vae_engine",
+        "early_stopping_patience": 1000,
+        "label_smoothing": 0.0,
+        "batch_size": 64,
+        "val_freq": 1,
+        "epochs": 50,
+        "num_workers": 4,
+        "accum_iter": 1,
+        "mixed_precision": "fp16",
+        "save_image_epochs": 1,
+        "sample_grid_dimension": 6,
+        "lr": 0.0003,
+        "weight_decay": 0,
+        "vae": {
+            "latent_dim": 256,
+            "hidden_dims": [
+                32,
+                64,
+                128,
+                256
+            ]
+        }
+    },
+    "model": {
+        "base_dim": 64,
+        "out_channels": 3,
+        "resume_path": null
+    },
+    "data": {
+        "root": "data",
+        "in_channels": 3,
+        "image_size": 64
+    },
+    "evaluation": {
+        "num_workers": 4,
+        "batch_size": 32
+    },
+    "wandb": {
+        "name": "VAE_test",
+        "tags": []
+    },
+    "project_tracker": [
+        "wandb"
+    ],
+    "project_dir": "VAE_test",
+    "project_name": "VAE",
+    "log_dir": "logs",
+    "mixed_precision": "fp16",
+    "seed": 0,
+    "config": null
+}

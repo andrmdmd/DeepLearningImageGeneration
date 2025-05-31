@@ -20,9 +20,16 @@ class DCGANTrainingConfig:
     beta2: float = 0.999  
 
 @dataclasses.dataclass
+class VAETrainingConfig:
+    latent_dim: int = 64 # Size of the latent space
+    hidden_dims: list[int] = dataclasses.field(default_factory=lambda: [32, 64, 128, 256])
+
+
+@dataclasses.dataclass
 class TrainingConfig:
     unet2d: UNet2DTrainingConfig
     dcgan: DCGANTrainingConfig
+    vae: VAETrainingConfig
     engine: str = "unet2d_engine"
     early_stopping_patience: int = 5
     label_smoothing: float = 0.0
