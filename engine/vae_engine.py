@@ -6,12 +6,11 @@ from torchvision.utils import save_image, make_grid
 
 from configs import Config
 from dataset import get_loader
-from engine.base_engine import BaseEngine
-from engine.base_engine import ImageGenerationEngine  # Make sure this exists
+from engine.base_engine import ImageGenerationEngine
 from modeling.model import build_vae
 from PIL import Image
 
-class VAEEngine(ImageGenerationEngine):  # Inherit from ImageGenerationEngine
+class VAEEngine(ImageGenerationEngine):
     def __init__(self, accelerator: accelerate.Accelerator, cfg: Config):
         super().__init__(accelerator, cfg)
         self.current_epoch = 1
