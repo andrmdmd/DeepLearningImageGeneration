@@ -209,9 +209,13 @@ class ImageGenerationEngine(BaseEngine):
         # Save the grid locally
         test_dir = os.path.join(self.base_dir, "checkpoint", "samples")
         os.makedirs(test_dir, exist_ok=True)
-        grid_path = os.path.join(
-            test_dir, f"{epoch:04d}{f'-{self.log_step:04d}' if self.log_step is not None else ''}.png"
-        )
+        path_name = f"{epoch:04d}.png"
+        
+        # Check if file already exists (this means we are saving more often than once per epoch) - add step to the filename
+        if os.path.exists(os.path.join(test_dir, path_name)) and self.log_step is not None:
+            path_name = f"{epoch:04d}-{self.log_step:04d}.png"
+            
+        grid_path = os.path.join(test_dir, path_name)
         image_grid.save(grid_path)
 
         log_step = self.log_step if self.log_step is not None else (epoch + 1) * len(self.train_loader)

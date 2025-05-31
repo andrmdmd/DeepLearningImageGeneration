@@ -40,7 +40,6 @@ class VAEEngine(ImageGenerationEngine):  # Inherit from ImageGenerationEngine
             self.val_loader,
             self.test_loader,
         ) = self.accelerator.prepare(model, optimizer, train_loader, val_loader, test_loader)
-        print(model)
 
     def loss_function(self, recon_x, x, mu, logvar):
         recon_loss = F.mse_loss(recon_x, x, reduction="sum")
@@ -48,6 +47,9 @@ class VAEEngine(ImageGenerationEngine):  # Inherit from ImageGenerationEngine
         return recon_loss + kld
 
     def _train_one_epoch(self):
+        epoch_progress = self.sub_task_progress.add_task(
+            "loader", total=len(self.train_loader)
+        )
         self.model.train()
         epoch_loss = 0
         for batch_idx, (data, _) in enumerate(self.train_loader):
@@ -58,12 +60,25 @@ class VAEEngine(ImageGenerationEngine):  # Inherit from ImageGenerationEngine
             self.accelerator.backward(loss)
             self.optimizer.step()
             epoch_loss += loss.item()
-            if self.accelerator.is_main_process and batch_idx % 100 == 0:
-                self.accelerator.print(f"Train Batch {batch_idx}, Loss: {loss.item():.4f}")
+
+            if self.accelerator.is_main_process:
+                self.log_step = self.current_epoch * len(self.train_loader) + batch_idx
+                if batch_idx % 100 == 0:
+                    self.accelerator.print(f"Epoch [{self.current_epoch}/{self.cfg.training.epochs}] Batch [{batch_idx}/{len(self.train_loader)}] Loss: {loss.item():.4f}")
+                self.log_results(
+                    {"loss/train": loss.item()},
+                    step= self.log_step,
+                    csv_name="train_steps.csv"
+                )
+            self.sub_task_progress.update(epoch_progress, advance=1)
+
         avg_loss = epoch_loss / len(self.train_loader.dataset)
         if self.accelerator.is_main_process:
-            self.log_step = self.current_epoch * len(self.train_loader)
-            self.log_results({"loss/train": avg_loss}, step=self.log_step)
+            epoch_step = (self.current_epoch+1) * len(self.train_loader)
+            self.log_step = epoch_step
+            self.log_results({"loss/train_epoch": avg_loss}, step=self.log_step , csv_name="train_metrics.csv")
+
+        self.sub_task_progress.remove_task(epoch_progress)
         return avg_loss
 
     def laplacian_variance(self, img_tensor):
@@ -116,7 +131,7 @@ class VAEEngine(ImageGenerationEngine):  # Inherit from ImageGenerationEngine
             lap_vars.append(lap_var)
         avg_lap_var = sum(lap_vars) / len(lap_vars)
         if self.accelerator.is_main_process:
-            self.log_results({"val/lapl_var": avg_lap_var}, step=self.log_step, csv_name="lapl_var.csv",)
+            self.log_results({"val/lapl_var": avg_lap_var}, step=self.log_step, csv_name="lapl_var.csv")
             self.accelerator.print(f"Average Laplacian Variance: {avg_lap_var:.4f}")
     
         self.evaluate(epoch, all_images)
@@ -129,11 +144,9 @@ class VAEEngine(ImageGenerationEngine):  # Inherit from ImageGenerationEngine
         self.accelerator.wait_for_everyone()
         for epoch in range(self.current_epoch, self.cfg.training.epochs + 1):
             self.current_epoch = epoch
-            train_loss = self._train_one_epoch()
+            self._train_one_epoch()
             self.accelerator.wait_for_everyone()
-            # Sample images every save_image_epochs
             if self.accelerator.is_main_process and epoch % self.cfg.training.save_image_epochs == 0:
-                save_path = os.path.join(self.base_dir, f"samples_epoch_{epoch}.png")
                 self.sample_images(
                     epoch=epoch,
                     num_samples=self.cfg.training.sample_grid_dimension ** 2
