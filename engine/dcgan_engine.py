@@ -129,8 +129,9 @@ class DCGANEngine(ImageGenerationEngine):
                     },
                     step=current_step,
                 )
-        self.sub_task_progress.update(epoch_progress, advance=1)
+            self.sub_task_progress.update(epoch_progress, advance=1)
 
+        self.sub_task_progress.remove_task(epoch_progress)
         if self.accelerator.is_main_process:
             self.sample_demo_images(self.current_epoch)
 

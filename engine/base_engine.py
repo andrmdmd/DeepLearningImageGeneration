@@ -195,7 +195,7 @@ class ImageGenerationEngine(BaseEngine):
             grid.paste(image, box=(i % cols * w, i // cols * h))
         return grid
 
-    def evaluate(self, epoch, images: List[Image.Image], callback=None, step=None):
+    def evaluate(self, epoch, images: List[Image.Image], callback=None):
         """
         Generate and save demo images, upload them to wandb, and evaluate with CLIP-MMD.
         """
@@ -209,25 +209,29 @@ class ImageGenerationEngine(BaseEngine):
         # Save the grid locally
         test_dir = os.path.join(self.base_dir, "checkpoint", "samples")
         os.makedirs(test_dir, exist_ok=True)
-        grid_path = os.path.join(
-            test_dir, f"{epoch:04d}{f'-{step:04d}' if step is not None else ''}.png"
-        )
+        path_name = f"{epoch:04d}.png"
+        
+        # Check if file already exists (this means we are saving more often than once per epoch) - add step to the filename
+        if os.path.exists(os.path.join(test_dir, path_name)) and self.log_step is not None:
+            path_name = f"{epoch:04d}-{self.log_step:04d}.png"
+            
+        grid_path = os.path.join(test_dir, path_name)
         image_grid.save(grid_path)
 
-        log_step = step if step is not None else (epoch + 1) * len(self.train_loader)
+        log_step = self.log_step if self.log_step is not None else (epoch + 1) * len(self.train_loader)
 
         # Upload the grid to wandb
         if self.accelerator.is_main_process:
             wandb.log(
                 {"Generated Images": wandb.Image(image_grid)},
-                step=log_step + 1,
+                step=log_step,
             )
 
             # Evaluate with CLIP-MMD
             clip_mmd_score = self.clip_mmd.compute_mmd(images)
             self.log_results(
                 {"val/cmmd": clip_mmd_score},
-                step=log_step + 1,
+                step=log_step,
                 csv_name="cmmd.csv",
             )
             if clip_mmd_score < self.min_cmmd:

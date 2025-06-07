@@ -119,6 +119,14 @@ def get_loader(cfg) -> Tuple[DataLoader, DataLoader, DataLoader]:
                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]
         )
+    elif cfg.training.engine == "vae_engine":
+        transform = transforms.Compose(
+            [
+                transforms.Resize(cfg.data.image_size),
+                transforms.CenterCrop(cfg.data.image_size),
+                transforms.ToTensor(),
+            ]
+        )
     else:
         raise ValueError(f"Unknown engine: {cfg.training.engine}")
     

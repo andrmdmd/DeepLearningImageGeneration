@@ -1,0 +1,33 @@
+{
+  "method": "grid",
+  "metric": {
+    "name": "val/lapl_var",
+    "goal": "minimize"
+  },
+  "parameters": {
+    "sweep": {
+      "parameters": {
+        "training": {
+          "parameters": {
+            "vae": {
+              "parameters": {
+                "hidden_dims": {
+                  "values": [
+                    [400, 400, 400],
+                    [256, 256, 256],
+                    [128, 128, 128],
+                    [64, 128, 256],
+                    [32, 64, 128, 256]
+                  ]
+                },
+                "latent_dim": {
+                  "values": [16, 32, 64, 128, 256]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
