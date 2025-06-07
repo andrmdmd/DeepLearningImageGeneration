@@ -10,6 +10,7 @@ import dataclasses
 
 import accelerate
 import torch
+import datetime
 from rich.console import Group
 from rich.live import Live
 from rich.progress import (
@@ -27,7 +28,10 @@ from utils.meter import AverageMeter
 from utils.clipmmd import CLIPMMD
 from PIL import Image
 import wandb
+import pickle
 from typing import List
+from pytorch_fid.inception import InceptionV3
+from pytorch_fid.fid_score import calculate_frechet_distance, compute_statistics_of_path
 
 
 def human_format(num):
@@ -181,9 +185,49 @@ class ImageGenerationEngine(BaseEngine):
             self.accelerator.device, os.path.join(self.cfg.data.root, "cats"), cfg
         )
         self.min_cmmd = float("inf")
+        self.min_fid = float("inf")
         self.early_stopping_patience = self.cfg.training.early_stopping_patience
         self.early_stopping_counter = 0
         self.stop_training = False
+        self.fid_dir = os.path.join(self.base_dir, "fid_samples")
+        self._cached_real_dir = None
+        os.makedirs(self.fid_dir, exist_ok=True)
+
+    def compute_fid(self, generated_images_dir, real_images_dir):
+        """
+        Compute FID score between generated images and real images.
+        Caches the real images stats for future use if the same path is reused.
+        Saves and loads cached stats to/from a file in the real images directory.
+        """
+        dims = 2048  # InceptionV3 feature dimension
+        block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[dims]
+        cache_file = os.path.join(real_images_dir, "cached_real_stats.pkl")
+
+        # Load cached stats if available
+        if self._cached_real_dir != real_images_dir or not hasattr(self, "_cached_real_stats"):
+            if os.path.exists(cache_file):
+                with open(cache_file, "rb") as f:
+                    self._cached_real_stats = pickle.load(f)
+                self._cached_real_dir = real_images_dir
+                self.accelerator.print(f"Loaded cached real stats from {cache_file}")
+            else:
+                self._cached_real_dir = real_images_dir
+                self._cached_real_stats = compute_statistics_of_path(
+                    real_images_dir, InceptionV3([block_idx]).to(self.accelerator.device), 50, dims, self.accelerator.device
+                )
+                # Save cached stats to file
+                with open(cache_file, "wb") as f:
+                    pickle.dump(self._cached_real_stats, f)
+                self.accelerator.print(f"Saved cached real stats to {cache_file}")
+
+        # Always compute generated stats fresh
+        mu_gen, sigma_gen = compute_statistics_of_path(
+            generated_images_dir, InceptionV3([block_idx]).to(self.accelerator.device), 50, dims, self.accelerator.device
+        )
+
+        mu_real, sigma_real = self._cached_real_stats
+        fid_score = calculate_frechet_distance(mu_gen, sigma_gen, mu_real, sigma_real)
+        return fid_score
 
     def make_grid(self, images, rows, cols):
         """
@@ -192,12 +236,16 @@ class ImageGenerationEngine(BaseEngine):
         w, h = images[0].size
         grid = Image.new("RGB", size=(cols * w, rows * h))
         for i, image in enumerate(images):
-            grid.paste(image, box=(i % cols * w, i // cols * h))
+            if i >= rows * cols:
+                break
+            x = (i % cols) * w
+            y = (i // cols) * h
+            grid.paste(image, (x, y))
         return grid
 
-    def evaluate(self, epoch, images: List[Image.Image], callback=None):
+    def evaluate(self, epoch, images: List[Image.Image], callback=None, step=None):
         """
-        Generate and save demo images, upload them to wandb, and evaluate with CLIP-MMD.
+        Generate and save demo images, upload them to wandb, and evaluate with CLIP-MMD and FID.
         """
         # Create a grid of images
         image_grid = self.make_grid(
@@ -209,16 +257,18 @@ class ImageGenerationEngine(BaseEngine):
         # Save the grid locally
         test_dir = os.path.join(self.base_dir, "checkpoint", "samples")
         os.makedirs(test_dir, exist_ok=True)
-        path_name = f"{epoch:04d}.png"
-        
-        # Check if file already exists (this means we are saving more often than once per epoch) - add step to the filename
-        if os.path.exists(os.path.join(test_dir, path_name)) and self.log_step is not None:
-            path_name = f"{epoch:04d}-{self.log_step:04d}.png"
-            
-        grid_path = os.path.join(test_dir, path_name)
+        grid_path = os.path.join(
+            test_dir, f"{epoch:04d}{f'-{step:04d}' if step is not None else ''}.png"
+        )
         image_grid.save(grid_path)
 
         log_step = self.log_step if self.log_step is not None else (epoch + 1) * len(self.train_loader)
+
+        epoch_fid_dir = os.path.join(self.fid_dir, f"epoch_{epoch}")
+        os.makedirs(epoch_fid_dir, exist_ok=True)
+        # Save individual images for FID computation
+        for i, image in enumerate(images):
+            image.save(os.path.join(epoch_fid_dir, f"generated_{i}.png"))
 
         # Upload the grid to wandb
         if self.accelerator.is_main_process:
@@ -228,13 +278,33 @@ class ImageGenerationEngine(BaseEngine):
             )
 
             # Evaluate with CLIP-MMD
-            clip_mmd_score = self.clip_mmd.compute_mmd(images)
+            clip_mmd_score = self.clip_mmd.compute_mmd(images[:self.cfg.training.sample_grid_dimension**2])
             self.log_results(
                 {"val/cmmd": clip_mmd_score},
                 step=log_step,
                 csv_name="cmmd.csv",
             )
-            if clip_mmd_score < self.min_cmmd:
+
+            # Compute FID score
+            real_images_dir = os.path.join(self.cfg.data.root, "cats")  # Path to real images
+            # print with time
+            print("Started calculating FID score...", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            fid_score = self.compute_fid(epoch_fid_dir, real_images_dir)
+            print("Finished calculating FID score.", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            self.log_results(
+                {"val/fid": fid_score},
+                step=(epoch) * len(self.train_loader),
+                csv_name="fid.csv",
+            )
+            self.accelerator.print(f"FID score: {fid_score:.8f}")
+
+            if fid_score < self.min_fid:
+                self.min_fid = fid_score
+                self.accelerator.print(f"New best FID score: {fid_score:.8f}")
+                if callback:
+                    callback(epoch)
+                self.early_stopping_counter = 0
+            elif clip_mmd_score < self.min_cmmd:
                 self.min_cmmd = clip_mmd_score
                 self.accelerator.print(f"New best CLIP-MMD score: {clip_mmd_score:.8f}")
                 if callback:

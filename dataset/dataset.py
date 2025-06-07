@@ -114,7 +114,6 @@ def get_loader(cfg) -> Tuple[DataLoader, DataLoader, DataLoader]:
         transform = transforms.Compose(
             [
                 transforms.Resize(cfg.data.image_size),
-                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]
@@ -129,7 +128,7 @@ def get_loader(cfg) -> Tuple[DataLoader, DataLoader, DataLoader]:
         )
     else:
         raise ValueError(f"Unknown engine: {cfg.training.engine}")
-    
+
     dataset = torchvision.datasets.ImageFolder(
         root=cfg.data.root,
         transform=transform,

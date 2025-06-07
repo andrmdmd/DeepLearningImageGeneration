@@ -10,6 +10,7 @@ from modeling import build_unet2d_model
 from diffusers import DDPMScheduler, DDPMPipeline, DDIMScheduler, DDIMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from engine.base_engine import ImageGenerationEngine
+from adaptive_augmentation import get_ada_aug
 from PIL import Image
 
 
@@ -29,6 +30,37 @@ class UNet2DEngine(ImageGenerationEngine):
         else:
             # default to DDPM
             self.noise_scheduler = DDPMScheduler.from_config(config)
+
+        self.p = 0.0
+        if self.cfg.training.aug_type == "linear":
+            def linear_augmentation():
+                p_step = 0.001
+                if self.p < 0.5:
+                    p = self.p + p_step
+
+                return get_ada_aug(p=p)
+            self.augmentation = linear_augmentation
+        # elif self.cfg.training.aug_type == "adaptive":
+        #     def adaptive_augmentation(last_p, overfitting_measure: float):
+        #         p_step = 0.001
+        #         overfitting_goal = 0.6
+        #         if overfitting_measure < overfitting_goal:
+        #             p = last_p - p_step
+        #         elif overfitting_measure > overfitting_goal:
+        #             p = last_p + p_step
+
+        #         return get_ada_aug(p=p)
+        #   self.augmentation = adaptive_augmentation
+        elif isinstance(self.cfg.training.aug_type,float):
+            self.p = float(self.cfg.training.aug_type)
+
+            def const_augmentation():
+                return get_ada_aug(p=float(self.p))
+            self.augmentation = const_augmentation
+        else:
+            raise ValueError(
+                f"Unknown augmentation type: {self.cfg.training.aug_type}"
+            )
 
         self.accelerator.init_trackers(
             (
@@ -60,7 +92,7 @@ class UNet2DEngine(ImageGenerationEngine):
         ):
             generator = torch.manual_seed(self.cfg.seed)
             # Generate images using the pipeline in batches
-            images_count = self.cfg.training.sample_grid_dimension**2
+            images_count = self.cfg.training.metric_calculation_img_count
             all_images = []
 
             for i in range(0, images_count, self.cfg.training.batch_size):
@@ -94,6 +126,9 @@ class UNet2DEngine(ImageGenerationEngine):
                 device=self.accelerator.device,
             ).long()
 
+            aug = self.augmentation()
+            for i in range(images.shape[0]):
+                images[i] = aug(images[i])
             noisy_images = self.noise_scheduler.add_noise(images, noise, timesteps)
 
             with self.accelerator.accumulate(self.model):

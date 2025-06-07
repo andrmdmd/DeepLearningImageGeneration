@@ -42,9 +42,11 @@ class TrainingConfig:
     lr: float = 0.0003
     weight_decay: float = 0.001
     # after how many epochs to sample some generated images
-    save_image_epochs: int = 1
+    save_image_epochs: int = 5
     # how many images to sample, dimension of a square grid (e.g. 4 means 4x4=16 images)
     sample_grid_dimension: int = 4
+    metric_calculation_img_count: int = 3000
+    aug_type: Literal["linear"] | float = 0.1
 
 
 @dataclasses.dataclass
