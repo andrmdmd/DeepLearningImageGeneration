@@ -148,7 +148,7 @@ class VAEEngine(ImageGenerationEngine):
             if self.accelerator.is_main_process and epoch % self.cfg.training.save_image_epochs == 0:
                 self.sample_images(
                     epoch=epoch,
-                    num_samples=self.cfg.training.sample_grid_dimension ** 2
+                    num_samples=self.cfg.training.metric_calculation_img_count
                 )
             if self.stop_training:
                 break

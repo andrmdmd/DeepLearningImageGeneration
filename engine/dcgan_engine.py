@@ -147,7 +147,7 @@ class DCGANEngine(ImageGenerationEngine):
             or epoch == self.cfg.training.epochs
         ):
             generator = torch.Generator(device=self.device)
-            images_count = self.cfg.training.sample_grid_dimension**2
+            images_count = self.cfg.training.metric_calculation_img_count
             all_images = []
             self.netG.eval().to(self.device)
 

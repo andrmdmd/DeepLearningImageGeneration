@@ -16,6 +16,7 @@ dependencies = [
     "numpy>=2.2.5",
     "opencv-python==4.10.0.84",
     "pandas>=2.2.3",
+    "pytorch-fid>=0.3.0",
     "rich==13.9.4",
     "scikit-learn>=1.6.1",
     "seaborn>=0.13.2",

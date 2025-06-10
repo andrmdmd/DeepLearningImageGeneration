@@ -7,23 +7,20 @@
             "noise_scheduler": "ddim"
         },
         "engine": "unet2d_engine",
-        "weight_decay": 0.0001,
-        "lr": 0.001,
-        "early_stopping_patience": 20,
+        "early_stopping_patience": 100,
         "label_smoothing": 0.0,
-        "batch_size": 32,
+        "batch_size": 16,
         "val_freq": 1,
         "epochs": 40,
         "num_workers": 4,
         "accum_iter": 1,
         "mixed_precision": "fp16",
-        "save_image_epochs": 3,
+        "save_image_epochs": 5,
         "sample_grid_dimension": 16,
-        "metric_calculation_img_count": 300,
-        "aug_type": 0.0
+        "metric_calculation_img_count": 5000
     },
     "model": {
-        "base_dim": 64,
+        "base_dim": 32,
         "out_channels": 3,
         "resume_path": null
     },
@@ -38,12 +35,17 @@
     },
     "wandb": {
         "name": "UNet2D",
-        "tags": ["UNet2D", "100_epochs", "DDIM"]
+        "tags": ["UNet2D", "sweep", "augmentation"]
+    },
+    "sweep": {
+        "name": "UNet2D-sweep",
+        "config": "configuration/data_augmentation_sweep/sweep_config.json",
+        "project_name": "sweeps"
     },
     "project_tracker": [
         "wandb"
     ],
-    "project_dir": "unet2d_long_runs",
+    "project_dir": "unet2d_data_augmentation_sweep",
     "project_name": "unet2d",
     "log_dir": "logs",
     "mixed_precision": "fp16",

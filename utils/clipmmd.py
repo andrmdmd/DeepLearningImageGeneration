@@ -17,7 +17,7 @@ class CLIPMMD:
         """
         Load cached reference features if available, otherwise compute and save them in batches.
         """
-        cache_path = os.path.join(self.reference_images_dir, f"reference_features_{self.cfg.training.sample_grid_dimension}.pt")
+        cache_path = os.path.join(self.reference_images_dir, f"reference_features_{self.cfg.training.metric_calculation_img_count}.pt")
 
         # Check if cached features exist
         if os.path.exists(cache_path):
@@ -29,7 +29,7 @@ class CLIPMMD:
         reference_images = []
         num_images = 0
         for filename in os.listdir(self.reference_images_dir):
-            if num_images == self.cfg.training.sample_grid_dimension**2:
+            if num_images == self.cfg.training.metric_calculation_img_count:
                 break
             if filename.endswith((".png", ".jpg", ".jpeg")):
                 image_path = os.path.join(self.reference_images_dir, filename)
@@ -42,15 +42,16 @@ class CLIPMMD:
         all_features = []
 
         for i in range(0, len(reference_images), self.cfg.training.batch_size):
-            batch_images = reference_images[i:i + self.cfg.training.batch_size]
+            batch_size = min(self.cfg.training.batch_size, len(reference_images) - i)
+            batch_images = reference_images[i:i + batch_size]
             inputs = self.clip_processor(images=batch_images, return_tensors="pt", padding=True).to(self.device)
             with torch.no_grad():
                 batch_features = self.clip_model.get_image_features(**inputs)
-            batch_features = batch_features / batch_features.norm(dim=-1, keepdim=True)
             all_features.append(batch_features)
 
         # Concatenate all features
         all_features = torch.cat(all_features, dim=0)
+        all_features = all_features / all_features.norm(dim=-1, keepdim=True)
 
         # Save computed features to cache
         torch.save(all_features, cache_path)
@@ -60,9 +61,18 @@ class CLIPMMD:
         """
         Compute Maximum Mean Discrepancy (MMD) between generated and reference images.
         """
-        inputs = self.clip_processor(images=generated_images, return_tensors="pt", padding=True).to(self.device)
-        with torch.no_grad():
-            generated_features = self.clip_model.get_image_features(**inputs)
+        all_features = []
+
+        for i in range(0, len(generated_images), self.cfg.training.batch_size):
+            batch_size = min(self.cfg.training.batch_size, len(generated_images) - i)
+            batch_images = generated_images[i:i + batch_size]
+            inputs = self.clip_processor(images=batch_images, return_tensors="pt", padding=True).to(self.device)
+            with torch.no_grad():
+                batch_features = self.clip_model.get_image_features(**inputs)
+            all_features.append(batch_features)
+
+        # Concatenate all features
+        generated_features = torch.cat(all_features, dim=0)
         generated_features = generated_features / generated_features.norm(dim=-1, keepdim=True)
 
         # Compute MMD (L2 distance between generated and reference features)

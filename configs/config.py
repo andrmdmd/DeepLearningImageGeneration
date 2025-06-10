@@ -42,9 +42,12 @@ class TrainingConfig:
     lr: float = 0.0003
     weight_decay: float = 0.001
     # after how many epochs to sample some generated images
-    save_image_epochs: int = 1
+    save_image_epochs: int = 3
     # how many images to sample, dimension of a square grid (e.g. 4 means 4x4=16 images)
     sample_grid_dimension: int = 4
+    metric_calculation_img_count: int = 3000
+    cleanup_generated_images: bool = True
+    aug_type: Literal["linear"] | float = 0.1
 
 
 @dataclasses.dataclass
@@ -102,3 +105,27 @@ class Config(JSONPyWizard):
     mixed_precision: str = "no"
     seed: int = 0
     config: Optional[str] = None
+
+    @classmethod
+    def from_defaults(cls) -> Config:
+        # Create default instances of all nested dataclasses
+        training_config = TrainingConfig(
+            unet2d=UNet2DTrainingConfig(),
+            dcgan=DCGANTrainingConfig(),
+            vae=VAETrainingConfig()
+        )
+        model_config = ModelConfig()
+        data_config = DataConfig()
+        eval_config = EvalConfig()
+        wandb_config = WandbConfig()
+        sweep_config = SweepConfig()
+
+        # Return a Config object with all defaults
+        return cls(
+            training=training_config,
+            model=model_config,
+            data=data_config,
+            evaluation=eval_config,
+            wandb=wandb_config,
+            sweep=sweep_config
+        )
