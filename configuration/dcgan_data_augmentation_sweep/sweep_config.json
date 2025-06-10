@@ -1,0 +1,30 @@
+{
+  "method": "grid",
+  "metric": {
+    "name": "val/fid",
+    "goal": "minimize"
+  },
+  "parameters": {
+    "sweep": {
+      "parameters": {
+        "training": {
+          "parameters": {
+            "lr": {
+              "values": [
+                0.00003,
+                0.0001
+              ]
+            },
+            "aug_type": {
+              "values": [
+                0.0,
+                0.1,
+                "linear"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

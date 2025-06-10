@@ -186,6 +186,7 @@ class ImageGenerationEngine(BaseEngine):
         )
         self.min_cmmd = float("inf")
         self.min_fid = float("inf")
+        self.log_step = None  # Will be set during evaluation
         self.early_stopping_patience = self.cfg.training.early_stopping_patience
         self.early_stopping_counter = 0
         self.stop_training = False
@@ -278,7 +279,7 @@ class ImageGenerationEngine(BaseEngine):
             )
 
             # Evaluate with CLIP-MMD
-            clip_mmd_score = self.clip_mmd.compute_mmd(images[:self.cfg.training.sample_grid_dimension**2])
+            clip_mmd_score = self.clip_mmd.compute_mmd(images)
             self.log_results(
                 {"val/cmmd": clip_mmd_score},
                 step=log_step,
@@ -293,10 +294,18 @@ class ImageGenerationEngine(BaseEngine):
             print("Finished calculating FID score.", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             self.log_results(
                 {"val/fid": fid_score},
-                step=(epoch) * len(self.train_loader),
+                step=log_step,
                 csv_name="fid.csv",
             )
             self.accelerator.print(f"FID score: {fid_score:.8f}")
+
+            if self.cfg.training.cleanup_generated_images:
+                # Clean up generated images after FID calculation
+                for filename in os.listdir(epoch_fid_dir):
+                    file_path = os.path.join(epoch_fid_dir, filename)
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                self.accelerator.print("Cleaned up generated images.")
 
             if fid_score < self.min_fid:
                 self.min_fid = fid_score

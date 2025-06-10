@@ -9,7 +9,7 @@
         "engine": "unet2d_engine",
         "early_stopping_patience": 100,
         "label_smoothing": 0.0,
-        "batch_size": 64,
+        "batch_size": 16,
         "val_freq": 1,
         "epochs": 40,
         "num_workers": 4,

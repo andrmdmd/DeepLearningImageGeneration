@@ -40,17 +40,6 @@ class UNet2DEngine(ImageGenerationEngine):
 
                 return get_ada_aug(p=p)
             self.augmentation = linear_augmentation
-        # elif self.cfg.training.aug_type == "adaptive":
-        #     def adaptive_augmentation(last_p, overfitting_measure: float):
-        #         p_step = 0.001
-        #         overfitting_goal = 0.6
-        #         if overfitting_measure < overfitting_goal:
-        #             p = last_p - p_step
-        #         elif overfitting_measure > overfitting_goal:
-        #             p = last_p + p_step
-
-        #         return get_ada_aug(p=p)
-        #   self.augmentation = adaptive_augmentation
         elif isinstance(self.cfg.training.aug_type,float):
             self.p = float(self.cfg.training.aug_type)
 
@@ -96,8 +85,11 @@ class UNet2DEngine(ImageGenerationEngine):
             all_images = []
 
             for i in range(0, images_count, self.cfg.training.batch_size):
+                batch_size = min(
+                    self.cfg.training.batch_size, images_count - i
+                )
                 batch_images = pipeline(
-                    batch_size=self.cfg.training.batch_size,
+                    batch_size=batch_size,
                     generator=generator,
                     num_inference_steps=self.cfg.training.unet2d.inference_timesteps,
                 ).images
