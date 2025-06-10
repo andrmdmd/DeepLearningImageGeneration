@@ -1,8 +1,8 @@
-# Deep Learning Speech Recognition
+# Deep Learning Image Generation
 
 ## 🚀 Introduction
 
-In this project, we evaluated and compared the performance of three deep learning architectures -- the M5 CNN, Vision Transformer (ViT), and Conformer -- on a multi-class speech command classification task. We investigated the impact of key model hyperparameters, audio input representations, and dataset balancing techniques on classification accuracy. Based on our experimental results, we developed and proposed an ensemble approach combining multiple M5 CNN classifiers to enhance overall performance.
+In this project, we evaluated and compared the performance of multiple deep learning architectures on image generation tasks. We investigated the impact of key model hyperparameters, data augmentation techniques, and dataset balancing strategies on generation quality. Based on our experimental results, we developed and proposed adaptive augmentation methods to enhance model performance.
 
 ## Adding dataset
 
@@ -18,29 +18,33 @@ Structure change `cats/Data/` > `data/cats/`
 
 ```plaintext
 📦deep-learning-image-generation
+ ├── 📂adaptive_augmentation  # Adaptive augmentation methods
+ │   ├── 📄adaptive_augment.py
+ │   ├── 📄adaptive_augmentation.py
+ ├── 📂charts                 # Visualization outputs
+ │   ├── 📄training_class_distribution.png
+ │   ├── 📄unknown_method_validation_acc.png
+ │   └── 📂final_confusion_matrices
  ├── 📂configs                # Configuration files for experiments
  │   ├── 📄config_utils.py    # Utils for showing or saving configs
  │   └── 📄config.py          # Main configuration script
  ├── 📂configuration          # Experiment-specific configuration files
- │   └── 📂sweep_test
  ├── 📂dataset                # Data loading and preprocessing modules
- │   └── 📄dataset.py         # Data loader and preprocessing scripts
- ├── 📂modeling               # Model architecture definitions
- │   ├── 📄loss.py            # Loss function
- │   └── 📄model.py           # All architecture classes
- ├── 📂utils                  # Utility scripts for various tasks
- │   └── 📄metrics.py         # Performance metrics
  ├── 📂engine                 # Training and validation engine
- │   ├── 📄base_engine.py     # Base engine class
- │   ├── 📄sweep_engine.py    # Sweep engine class
- │   └── 📄engine.py          # Training and validation loops
+ ├── 📂logs                   # Logs for experiments
+ ├── 📂modeling               # Model architecture definitions
+ ├── 📂notebooks              # Jupyter notebooks for analysis
+ ├── 📂utils                  # Utility scripts for various tasks
+ ├── 📂wandb                  # WandB experiment tracking
  ├── 📄.gitignore             # Specifies intentionally untracked files
  ├── 📄LICENSE                # License file
  ├── 📄README.md              # Project README
  ├── 📄linter.sh              # Code formatting script
- ├── 📄requirements.txt       # Dependencies
  ├── 📄main.py                # Main training script
- └── 📄sweep.py               # Sweep training script
+ ├── 📄pyproject.toml         # Project dependencies and settings
+ ├── 📄run_sweeps.sh          # Script to run WandB sweeps
+ ├── 📄sweep.py               # Sweep training script
+ └── 📄requirements.txt       # Dependencies
 ```
 
 ## ⚙️ Configuration
@@ -60,10 +64,10 @@ Experiment configurations are stored in the `configuration` directory. WandB swe
 
 2.  **Run training scripts:**
 
-    Example for training a Ensemble model:
+    Example for training a model:
 
     ```shell
-    python3 sweep.py --config configuration/full_dataset_sweep/config_11_classes.json --model.architecture="M5" \
+    python3 main.py --config configuration/dcgan_data_augmentation_sweep/config.json
     ```
 
 3.  **Run WandB sweeps:**
@@ -71,7 +75,7 @@ Experiment configurations are stored in the `configuration` directory. WandB swe
     Example to run a WandB sweep for data augmentation experiments:
 
     ```shell
-    ./configuration/data_augmentation/run_sweeps.sh
+    ./run_sweeps.sh
     ```
 
     Ensure you are logged into your WandB account.
